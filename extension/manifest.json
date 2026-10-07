@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Execution OS — Focus Guard",
+  "version": "1.0.0",
+  "description": "Blocks distracting sites during your Execution OS focus blocks and offers to save them for later.",
+  "permissions": ["declarativeNetRequest", "storage", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Execution OS Focus Guard" },
+  "icons": { "16": "icon-16.png", "48": "icon-48.png", "128": "icon-128.png" },
+  "web_accessible_resources": [{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }]
+}

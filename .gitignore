@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+release/
+data/
+.claude/
+*.log
+*.tsbuildinfo
+local-env.bat
+android/app/build/
+android/build/
+android/local.properties
+.env
+.env.*

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Focus block — Execution OS</title>
+    <style>
+      :root { --bg: #f6f4ef; --ink: #1c1b19; --ink2: #57534b; --line: #cfcabe; --accent: #d9480f; --surface: #fff; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #121110; --ink: #edeae3; --ink2: #aaa59b; --line: #3b3935; --accent: #f26b3a; --surface: #1b1a18; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+        font: 16px/1.5 'IBM Plex Sans', system-ui, sans-serif; padding: 24px; }
+      main { width: min(520px, 100%); display: grid; gap: 20px; animation: rise 320ms cubic-bezier(.22,1,.36,1); }
+      @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); display: flex; gap: 8px; align-items: center; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+      h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; }
+      .mission { padding: 14px 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+      .mission small { display: block; color: var(--ink2); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+      .site { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: var(--ink2); word-break: break-all; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; }
+      button { height: 42px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      #msg { color: var(--ink2); font-size: 14px; min-height: 21px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="label"><span class="dot"></span><span id="block">Focus block</span></div>
+      <h1 id="title">This can wait until the block ends.</h1>
+      <div class="mission" id="missionBox" hidden><small>Your mission right now</small><span id="mission"></span></div>
+      <div class="site" id="site"></div>
+      <div class="row">
+        <button class="primary" id="back">Back to the mission</button>
+        <button id="later">Save it for later</button>
+      </div>
+      <div id="msg"></div>
+    </main>
+    <script src="shared.js"></script>
+    <script src="blocked.js"></script>
+  </body>
+</html>

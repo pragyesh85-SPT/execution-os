@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Execution OS</string>
+    <string name="title_activity_main">Execution OS</string>
+    <string name="package_name">com.pragyesh.executionos</string>
+    <string name="custom_url_scheme">com.pragyesh.executionos</string>
+</resources>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; width: 300px; padding: 16px; font: 14px/1.45 'IBM Plex Sans', system-ui, sans-serif; background: #f6f4ef; color: #1c1b19; }
+      h1 { font-size: 15px; margin: 0 0 10px; }
+      .state { padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #e2ded4; margin-bottom: 12px; }
+      .on { color: #2e7d4f; font-weight: 600; }
+      .off { color: #8a857b; font-weight: 600; }
+      .err { color: #c0392b; font-weight: 600; }
+      label { display: grid; gap: 4px; font-size: 12px; color: #57534b; margin-bottom: 8px; }
+      input { height: 32px; padding: 0 8px; border: 1px solid #cfcabe; border-radius: 8px; font: inherit; }
+      button { height: 32px; padding: 0 12px; border-radius: 8px; border: 0; background: #d9480f; color: #fff; font: inherit; font-weight: 500; cursor: pointer; }
+      small { color: #8a857b; }
+    </style>
+  </head>
+  <body>
+    <h1>Execution OS · Focus Guard</h1>
+    <div class="state" id="state">Checking…</div>
+    <label>Hub address<input id="hub" placeholder="http://localhost:4747" /></label>
+    <label>Pairing PIN (only for a hub on another PC)<input id="pin" inputmode="numeric" /></label>
+    <button id="save">Save &amp; refresh</button>
+    <p><small>The block list is edited in Execution OS → Settings → Focus Guard.</small></p>
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
