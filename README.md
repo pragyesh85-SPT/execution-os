@@ -9,6 +9,8 @@ It runs on **Windows, Android and any browser**. Your own PC acts as the server 
 
 > **Status:** v1.0, a working personal tool built for daily use. Expect rough edges.
 
+**[Who it's for](#who-should-use-it) · [Why](#why-use-it-instead-of-a-calendar-a-to-do-list-or-a-timer) · [Principles](#the-principles-in-one-screen) · [Features](#what-it-does) · [How it works](#how-it-works) · [Get started](#getting-started) · [Philosophy](docs/PHILOSOPHY.md) · [Contribute](CONTRIBUTING.md)**
+
 ---
 
 ## Why it was created
@@ -18,6 +20,59 @@ It was built for one person: a student-founder balancing university study, two s
 An alarm rings, gets dismissed, and the day slides. One late start breaks every block after it. Study has no protected time, so business work quietly eats it.
 
 Execution OS changes the assumption. It does not assume "I know what to do, an alarm will remind me, I will do it." It assumes **you will sometimes oversleep, get distracted, or get absorbed in the wrong work**, and it is designed around that reality.
+
+---
+
+## Who should use it
+
+Execution OS is for people whose problem is not *knowing* what to do, but *doing it at the right time, every day*.
+
+- **Students with a second life.** You study (online degree, university, exam prep) while also running a business, a job or a big side project, and study keeps losing to the work that feels more urgent.
+- **Solo founders and indie builders** splitting one day across several products, who need deep-work blocks protected from admin, email and context switching.
+- **People with non-negotiable anchors.** Prayer or devotion, gym, family time, caregiving, a fixed sleep window: blocks that must happen at a set time, with everything else arranged around them.
+- **People who dismiss alarms and drift.** You have tried calendars, to-do apps and Pomodoro timers. They tell you the plan but do nothing when the plan breaks at 10:17 AM.
+- **People who want to own their data.** No account, no subscription, no cloud. Your PC is the server; your phone and laptop work offline.
+- **Developers who like hackable, local-first software.** One TypeScript codebase for web, Windows and Android, a readable sync protocol, SQLite on your own machine and a test suite. Fork it and make it yours.
+
+## Who it is *not* for
+
+Be honest with yourself before installing.
+
+- **Teams.** There is no sharing, no assignments, no shared calendar. It is a single-person system.
+- **Fully reactive work.** If your day is decided by incoming tickets, on-call pages or customers walking in, time blocks will fight your job.
+- **Anyone looking for gamification.** There are no streaks, badges, XP or leaderboards, on purpose (see [Philosophy](docs/PHILOSOPHY.md)).
+- **iPhone-only users who want hard blocking.** On iPhone it runs as a home-screen web app and cannot block other apps.
+- **Anyone wanting a polished commercial product.** This is a v1 personal tool, shared openly. It works daily for its author, but you will find rough edges.
+
+## Why use it instead of a calendar, a to-do list or a timer
+
+| | Calendar | To-do app | Pomodoro timer | **Execution OS** |
+|---|:---:|:---:|:---:|:---:|
+| Tells you what to do *right now* | partly | no | no | **yes** — one mission per block |
+| Notices you have not started | no | no | no | **yes** — drifting → rescue |
+| Repairs the day when you are late | no | no | no | **yes** — Rescue Mode |
+| Protects minimums (sleep, study) | no | no | no | **yes** |
+| Makes distraction harder | no | no | no | **yes** — Focus Guard |
+| Gets you out of bed | alarm only | no | no | **yes** — QR wake gate |
+| Learns which slots actually work | no | no | no | **yes** — weekly review |
+| Works offline, data on your own machine | rarely | rarely | yes | **yes** |
+
+## The principles in one screen
+
+1. **Answer one question:** what is the single best thing to do *now*? Everything in the interface serves that.
+2. **Rules decide *when*. AI only suggests *what*.** The clock is the authority; the AI is a strategist that can never move your sleep or your study block.
+3. **Never carry lateness forward.** A missed hour is not pushed through every later block. The rest of the day is rebuilt to be feasible.
+4. **Protect, don't maximise.** Sleep, devotion and a study minimum are defended first. Low-priority work is trimmed first.
+5. **Missions, not activities.** "Study" is not a plan. "Finish Assignment 3, Q1–Q5" is.
+6. **Environment beats willpower.** A QR card across the room and a blocked site beat a promise to yourself.
+7. **Decide in advance.** IF → THEN rules turn decisions into defaults before the moment of weakness.
+8. **Proof over presence.** Eight hours at a desk is not eight hours of work. Record what actually got done.
+9. **Adherence, not streaks.** One missed day does not break anything. The trend matters, not the chain.
+10. **One change per week.** Observe → measure → adjust → repeat. Not ten changes at once.
+11. **Entertainment gets a budget, not a ban.** A planned movie is part of the schedule; an accidental three hours is not.
+12. **Your data, your machine.** Local-first, no telemetry, and no silent overwrites between devices.
+
+The reasoning behind each principle is in **[docs/PHILOSOPHY.md](docs/PHILOSOPHY.md)**.
 
 ---
 
@@ -131,6 +186,32 @@ tests/           Vitest: engine, rescue, sync protocol, hub + database integrati
 **Stack:** React 19, TypeScript, Motion, Zustand, Vite · Node `http` + `node:sqlite` · Electron · Capacitor 8 · Vitest.
 
 ---
+
+## Research it builds on
+
+Execution OS turns a handful of well-replicated findings into mechanisms. They are not used as decoration.
+
+| Finding | Where it shows up |
+|---|---|
+| Deciding *"when X happens, I do Y"* in advance has a medium-to-large effect on goal attainment, across 94 independent tests — Gollwitzer & Sheeran (2006) | IF → THEN rules |
+| Habit automaticity took 18–254 days in a real-world study, and a single missed day did not materially derail it — Lally et al. (2010) | Adherence % instead of streaks; no punishment for one bad day |
+| Procrastination is linked to task aversiveness, delay, low self-efficacy, distractibility and impulsiveness — Steel (2007) | One concrete mission per block; small steps; distractions made harder to reach |
+| Blocking distracting sites increased self-rated productivity and focus duration, most for people distracted by social media — Mark, Czerwinski & Iqbal (2017) | Focus Guard (extension + Windows watcher) |
+| Switching between tasks has a measurable cost that grows with task complexity — Rubinstein, Meyer & Evans (2001) | Long single-purpose blocks; one mission at a time |
+| Time-management behaviour is moderately related to performance, academic achievement and well-being — Aeon, Faber & Panaccio (2021) | The whole premise: structure helps, when it is maintained |
+| Adults need ≥ 7 h of sleep; teenagers 8–10 h — AASM consensus statements (Watson et al. 2015; Paruthi et al. 2016) | Sleep is a fixed anchor; the clock editor warns below 7 h |
+
+Full references are in [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md#references).
+
+## Contributing
+
+Issues and pull requests are welcome, especially:
+- iOS and Android blocking;
+- calendar and email integrations;
+- translations;
+- accessibility.
+
+Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. It explains the setup and the few design rules a change must respect.
 
 ## Privacy and security
 
