@@ -2,8 +2,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
-import { randomInt } from 'node:crypto';
 import { focusState, wakeDue } from '../src/core/engine';
+import * as ops from '../src/core/ops';
 import type { Change } from '../src/core/sync';
 import type { Doc } from '../src/core/types';
 import { logicalDate } from '../src/core/time';
@@ -141,11 +141,6 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     res.end(readFileSync(file));
   };
 
-  const hubInsert = (col: 'later' | 'distractions', record: Record<string, unknown>) => {
-    const now = Date.now();
-    const id = `${col === 'later' ? 'l' : 'd'}-${now.toString(36)}${randomInt(1000, 9999)}`;
-    db.insert(col, { ...record, id, u: now } as never, 'extension');
-  };
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -159,7 +154,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     if (!path.startsWith('/api/')) return serveStatic(req, res, path);
 
     const local = isLoopback(req);
-    if (path === '/api/ping') return send(res, 200, { ok: true, app: 'execution-os', version: 2, needsPin: !local, rev: db.rev });
+    if (path === '/api/ping') return send(res, 200, { ok: true, app: 'execution-os', version: 2, appVersion: __APP_VERSION__, needsPin: !local, rev: db.rev });
     if (!local && req.headers['x-eos-pin'] !== db.pin) {
       return send(res, 401, { error: 'Pairing PIN required. Find it on the PC under Settings → Devices & sync.' });
     }
@@ -197,19 +192,15 @@ export function startHub(opts: HubOptions): Promise<Hub> {
       }
       if (path === '/api/later' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req, 64 * 1024)) as { url?: string; title?: string };
-        hubInsert('later', { text: (body.title || body.url || 'Saved link').slice(0, 300), url: body.url?.slice(0, 2000), at: Date.now(), done: false });
+        const url = typeof body.url === 'string' ? body.url.slice(0, 2000) : undefined;
+        db.mutate(ops.addLater(String(body.title || url || 'Saved link').slice(0, 300), url), 'extension');
         return send(res, 200, { ok: true });
       }
       if (path === '/api/distraction' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req, 16 * 1024)) as { minutes?: number; source?: string; kind?: string };
-        const now = Date.now();
-        hubInsert('distractions', {
-          date: logicalDate(now, db.doc.settings.dayStart),
-          at: now,
-          minutes: Math.max(0, Math.min(600, Number(body.minutes) || 0)),
-          source: String(body.source ?? 'Browser').slice(0, 60),
-          kind: body.kind === 'urge_resisted' ? 'urge_resisted' : 'unplanned',
-        });
+        const minutes = Math.max(0, Math.min(600, Number(body.minutes) || 0));
+        const kind = body.kind === 'urge_resisted' ? 'urge_resisted' : 'unplanned';
+        db.mutate(ops.logDistraction(minutes, String(body.source ?? 'Browser').slice(0, 60), kind), 'extension');
         return send(res, 200, { ok: true });
       }
       if (path === '/api/history' && req.method === 'GET') {

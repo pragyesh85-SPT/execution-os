@@ -149,6 +149,8 @@ async function cycle() {
       let changed = false;
       for (const ch of plan.push) {
         if (rejected.has(`${ch.col}/${ch.id}`)) continue;
+        // An older hub that does not know this collection returns nothing for it: keep ours.
+        if (!getRec(hubDoc, ch.col, ch.id)) continue;
         if (sameRec(getRec(cur, ch.col, ch.id), ch.record)) {
           setRec(next, ch.col, ch.id, getRec(hubDoc, ch.col, ch.id));
           changed = true;
