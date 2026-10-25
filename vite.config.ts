@@ -19,5 +19,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Tests build times with local-time Date constructors and the rescue-v1 fixture was recorded in IST,
+    // so pin the zone to get the same results on CI runners (UTC) and on any developer machine.
+    env: { TZ: 'Asia/Kolkata' },
   },
 } as any);
