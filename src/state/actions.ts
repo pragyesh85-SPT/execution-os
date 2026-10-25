@@ -42,6 +42,24 @@ export const addException = (...a: Parameters<typeof ops.addException>) => up(op
 export const removeException = (...a: Parameters<typeof ops.removeException>) => up(ops.removeException(...a));
 export const resetDayToTemplate = (...a: Parameters<typeof ops.resetDayToTemplate>) => up(ops.resetDayToTemplate(...a));
 export const applyRescue = (...a: Parameters<typeof ops.applyRescue>) => up(ops.applyRescue(...a));
+export const applyWeekRescue = (...a: Parameters<typeof ops.applyWeekRescue>) => up(ops.applyWeekRescue(...a));
+export const pinBlock = (...a: Parameters<typeof ops.pinBlock>) => up(ops.pinBlock(...a));
+export const addDayBlock = (...a: Parameters<typeof ops.addDayBlock>) => up(ops.addDayBlock(...a));
+export const moveDayBlock = (...a: Parameters<typeof ops.moveDayBlock>) => up(ops.moveDayBlock(...a));
+
+/** Run an edit that may be refused (ops.OpError). Shows the refusal as a toast; returns true on success. */
+export function attempt(run: () => void): boolean {
+  try {
+    run();
+    return true;
+  } catch (e) {
+    if (e instanceof ops.OpError) {
+      useStore.getState().toast(e.message, 'warn');
+      return false;
+    }
+    throw e;
+  }
+}
 
 // ---------- tasks ----------
 export const addTask = (...a: Parameters<typeof ops.addTask>) => up(ops.addTask(...a));
@@ -60,6 +78,7 @@ export const deleteLater = (...a: Parameters<typeof ops.deleteLater>) => up(ops.
 
 // ---------- settings / template / review ----------
 export const updateSettings = (...a: Parameters<typeof ops.updateSettings>) => up(ops.updateSettings(...a));
+export const setFeature = (...a: Parameters<typeof ops.setFeature>) => up(ops.setFeature(...a));
 export const saveTemplate = (...a: Parameters<typeof ops.saveTemplate>) => up(ops.saveTemplate(...a));
 export const saveReview = (...a: Parameters<typeof ops.saveReview>) => up(ops.saveReview(...a));
 

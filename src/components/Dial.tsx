@@ -32,6 +32,7 @@ export function Dial(props: {
   dayStart: number;
   nowOffset: number;
   done?: (b: PlanBlock) => boolean;
+  unlogged?: (b: PlanBlock) => boolean;
   size?: number;
   interactive?: boolean;
   centerTop?: string;
@@ -114,10 +115,26 @@ export function Dial(props: {
               onMouseLeave={interactive ? () => setHover(null) : undefined}
               onClick={interactive ? () => (onSelect ? onSelect(b) : setHover(hover?.id === b.id ? null : b)) : undefined}
             >
-              <title>{`${b.title} · ${fmtClock(clockOf(b.s, dayStart))}–${fmtClock(clockOf(b.e, dayStart))}`}</title>
+              <title>{`${b.title} · ${fmtClock(clockOf(b.s, dayStart))}–${fmtClock(clockOf(b.e, dayStart))}${b.pinned ? ' · pinned' : ''}`}</title>
             </motion.path>
           );
         })}
+        {/* pinned blocks: a 2 px darker outline */}
+        {arcs
+          .filter(({ b }) => b.pinned && !b.missed)
+          .map(({ b, a0, a1 }) => (
+            <g key={`pin-${b.id}`} pointerEvents="none" opacity={b.e <= nowOffset ? 0.5 : 0.9}>
+              <path d={arcPath(R + W / 2 + 1, a0, a1)} fill="none" stroke="var(--ink)" strokeWidth={2} />
+              <path d={arcPath(R - W / 2 - 1, a0, a1)} fill="none" stroke="var(--ink)" strokeWidth={2} />
+            </g>
+          ))}
+        {/* finished focus blocks without proof: an amber dot */}
+        {arcs
+          .filter(({ b }) => props.unlogged?.(b))
+          .map(({ b, a1 }) => {
+            const p = polar(R, a1 - 3);
+            return <circle key={`dot-${b.id}`} cx={p.x} cy={p.y} r={4.5} fill="var(--warn)" stroke="var(--surface)" strokeWidth={1.5} pointerEvents="none" />;
+          })}
         {/* now hand */}
         <g style={{ transform: `rotate(${nowAngle}deg)`, transformOrigin: '200px 200px', transition: 'transform 1s linear' }}>
           <line x1={C} y1={C - 64} x2={C} y2={C - R - W / 2 - 8} stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />

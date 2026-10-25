@@ -39,6 +39,7 @@ export interface Overlays {
   wake: boolean;
   rescue: boolean;
   proof?: { date: string; blockId: string };
+  block?: { date: string; blockId: string }; // block detail sheet (pin, edit time, mission)
   guard?: { source: string; title: string };
   urge: boolean;
   welcome: boolean;
