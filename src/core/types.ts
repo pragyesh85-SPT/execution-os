@@ -2,6 +2,8 @@
 // Everything in src/core is pure TypeScript (no DOM, no Node) so the web app,
 // the local hub server and the Electron shell all run the same rules.
 
+import type { FeatureKey } from './features';
+
 export type Category =
   | 'sleep'
   | 'devotion'
@@ -203,6 +205,7 @@ export interface Settings extends Synced {
   githubUser?: string;
   onboarded: boolean;
   startedOn?: string; // first tracked day; stats ignore days before it
+  features?: Partial<Record<FeatureKey, boolean>>; // v2 feature flags (Settings → Labs)
 }
 
 export interface Doc {
