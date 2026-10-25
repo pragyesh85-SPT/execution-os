@@ -3,6 +3,8 @@ import * as ops from '../core/ops';
 import * as proposals from '../core/proposals';
 import * as goals from '../core/goals';
 import * as coach from '../core/coach';
+import * as override from '../core/override';
+import { allKeys, getRec, sameRec, setRec, splitKey } from '../core/sync';
 import type { Op } from '../core/ops';
 import type { Doc } from '../core/types';
 import { logicalDate } from '../core/time';
@@ -60,6 +62,36 @@ export const toggleMilestone = (...a: Parameters<typeof goals.toggleMilestone>) 
 
 // ---------- coaching ----------
 export const postCoachingNote = (...a: Parameters<typeof coach.postCoachingNote>) => up(coach.postCoachingNote(...a));
+
+// ---------- quick override ----------
+
+/**
+ * Apply an override and offer Undo: the records it changed go back to how they were (as a new edit,
+ * so every device and the PC history see the undo too). Returns false if the override was refused.
+ */
+export function applyOverrideWithUndo(date: string, blockId: string, choice: override.OverrideChoice, message: string): boolean {
+  const before = structuredClone(useStore.getState().doc);
+  if (!attempt(() => up(override.applyOverride(date, blockId, choice)))) return false;
+  const after = useStore.getState().doc;
+  const changed = allKeys(before, after).filter((k) => {
+    const { col, id } = splitKey(k);
+    return !sameRec(getRec(before, col, id), getRec(after, col, id));
+  });
+  useStore.getState().toast(message, 'success', {
+    label: 'Undo',
+    run: () =>
+      up((d, now) => {
+        for (const k of changed) {
+          const { col, id } = splitKey(k);
+          const prev = getRec(before, col, id);
+          const cur = getRec(d, col, id);
+          if (!cur) continue;
+          setRec(d, col, id, prev ? { ...prev, u: now, r: cur.r } : { ...cur, del: true, u: now });
+        }
+      }),
+  });
+  return true;
+}
 
 // ---------- proposals ----------
 export const addProposal = (...a: Parameters<typeof proposals.addProposal>) => up(proposals.addProposal(...a));

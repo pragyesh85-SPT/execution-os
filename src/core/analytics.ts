@@ -34,6 +34,7 @@ export interface Analytics {
   focus: { avgSession: number; longestSession: number; sessions: number };
   missionsPlannedRate: number; // share of finished focus blocks that had a mission
   plannedFocusMinutes: number;
+  overrides: { swap: number; borrow: number; drift: number }; // "I'm doing something else", by kind
   daily: { date: string; deepWorkHours: number; completion: number | null; onTime: number | null }[];
 }
 
@@ -168,6 +169,13 @@ export function analytics(doc: Doc, fromIn: string, toIn: string, nowMs: number)
     if (p && !p.del) entPlanned += liveBlocks(p).filter((b) => b.category === 'entertainment').reduce((a, b) => a + (b.e - b.s), 0);
   }
 
+  // quick overrides
+  const overrides = { swap: 0, borrow: 0, drift: 0 };
+  for (const d of dates) {
+    const p = doc.days[d];
+    if (p && !p.del) for (const o of p.overrides ?? []) overrides[o.kind]++;
+  }
+
   // focus quality
   const sessions = Object.values(doc.sessions).filter((s) => !s.del && inRange.has(s.date) && s.end !== undefined);
   const lens = sessions.map((s) => ((s.end as number) - s.start) / MIN).filter((m) => m >= 1);
@@ -199,6 +207,7 @@ export function analytics(doc: Doc, fromIn: string, toIn: string, nowMs: number)
     focus: { avgSession: lens.length ? lens.reduce((a, b) => a + b, 0) / lens.length : 0, longestSession: lens.length ? Math.max(...lens) : 0, sessions: lens.length },
     missionsPlannedRate: finished ? rows.filter((r) => r.hasMission).length / finished : 0,
     plannedFocusMinutes: rows.reduce((a, r) => a + r.planned, 0),
+    overrides,
     daily,
   };
 }

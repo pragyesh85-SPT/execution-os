@@ -20,4 +20,6 @@ contextBridge.exposeInMainWorld('eosNative', {
   openExtensionFolder: () => ipcRenderer.invoke('eos:extension-folder') as Promise<string>,
   hubInfo: () => ipcRenderer.invoke('eos:hub-info'),
   openDataFolder: () => ipcRenderer.invoke('eos:open-data-folder'),
+  checkUpdates: () => ipcRenderer.invoke('eos:check-updates'),
+  installUpdate: () => ipcRenderer.invoke('eos:install-update') as Promise<boolean>,
 });

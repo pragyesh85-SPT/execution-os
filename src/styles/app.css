@@ -2252,3 +2252,36 @@ html[data-motion='reduced'] {
   gap: 10px;
   margin: 12px 0 4px;
 }
+
+/* ---------- v2: quick override ---------- */
+
+.override-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.override-choice:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink-3);
+}
+.override-choice:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.override-choice > span {
+  display: grid;
+  gap: 2px;
+}
+.override-choice .faint {
+  font-size: 13px;
+}

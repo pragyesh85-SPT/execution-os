@@ -11,6 +11,8 @@ export interface EosNative {
   openExtensionFolder: () => Promise<string>;
   hubInfo: () => Promise<HubInfo & { running: boolean; watcher: boolean }>;
   openDataFolder: () => Promise<void>;
+  checkUpdates?: () => Promise<import('./updates').UpdateStatus>;
+  installUpdate?: () => Promise<boolean>;
 }
 
 export interface HubInfo {

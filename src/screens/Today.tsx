@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Check as CheckIcon, Crosshair, Flag, GitMerge, LifeBuoy, Pause, Play, Shield, ShieldOff, Sparkles, Square, Undo2, Video, Zap } from 'lucide-react';
+import { ArrowLeftRight, Check as CheckIcon, Crosshair, Flag, GitMerge, LifeBuoy, Pause, Play, Shield, ShieldOff, Sparkles, Square, Undo2, Video, Zap } from 'lucide-react';
 import { checkJoinLink } from '../core/links';
 import { openJoin } from '../lib/join';
 import { useMemo, useState } from 'react';
@@ -221,6 +221,7 @@ function NowCard({ block }: { block: PlanBlock | undefined }) {
   const open = useStore((s) => s.open);
   const setTab = useStore((s) => s.setTab);
   const [urgeHint, setUrgeHint] = useState(false);
+  const overrideOn = useFlag('quickOverride');
 
   if (!block) {
     return (
@@ -381,6 +382,11 @@ function NowCard({ block }: { block: PlanBlock | undefined }) {
               <CheckIcon size={16} /> Mark {CATEGORY_META[block.category].short.toLowerCase()} done
             </button>
           ))}
+        {block.focus && overrideOn && (
+          <button className="btn ghost" onClick={() => open({ override: { date, blockId: block.id } })}>
+            <ArrowLeftRight size={14} /> I’m doing something else
+          </button>
+        )}
         {block.focus && (
           <button
             className="btn ghost"

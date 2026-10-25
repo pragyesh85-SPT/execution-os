@@ -1,0 +1,114 @@
+name: Release
+
+# Push a tag vX.Y.Z (after `npm run version:bump` and a CHANGELOG entry) to build and publish:
+#   ExecutionOS-X.Y.Z-setup.exe, ExecutionOS-X.Y.Z-portable.exe, ExecutionOS-X.Y.Z.apk,
+#   install.ps1 and SHA256SUMS.txt on a GitHub Release. Tags containing "-beta" become pre-releases.
+# Secrets for a signed APK: EOS_KEYSTORE_BASE64, EOS_KEYSTORE_PASSWORD, EOS_KEY_ALIAS, EOS_KEY_PASSWORD.
+# Without them the APK is debug-signed (installs fine, but cannot update a release-signed app).
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --config electron-builder.config.cjs --win nsis portable --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            release/ExecutionOS-*-setup.exe
+            release/ExecutionOS-*-setup.exe.blockmap
+            release/ExecutionOS-*-portable.exe
+            release/latest.yml
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - run: npm run android:sync
+      - name: Decode the signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.EOS_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "EOS_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+      - run: node scripts/build-apk.mjs
+        env:
+          EOS_KEYSTORE_PASSWORD: ${{ secrets.EOS_KEYSTORE_PASSWORD }}
+          EOS_KEY_ALIAS: ${{ secrets.EOS_KEY_ALIAS }}
+          EOS_KEY_PASSWORD: ${{ secrets.EOS_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: release/ExecutionOS-*.apk
+
+  publish:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Checksums and release notes
+        run: |
+          cp scripts/install.ps1 out/
+          cd out
+          sha256sum ExecutionOS-* install.ps1 > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          case "$GITHUB_REF_NAME" in *-beta*) PRE="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" out/* --title "Execution OS $GITHUB_REF_NAME" --notes-file notes.md $PRE

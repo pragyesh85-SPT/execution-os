@@ -8,6 +8,7 @@ import { FocusMode } from './overlays/FocusMode';
 import { RescueSheet } from './overlays/RescueSheet';
 import { BlockSheet } from './overlays/BlockSheet';
 import { ProposalSheet } from './overlays/ProposalSheet';
+import { OverrideSheet } from './overlays/OverrideSheet';
 import { PairLinkSheet } from './screens/DevicesV2';
 import { ConflictSheet } from './overlays/ConflictSheet';
 import { GuardNudge, JoinWarning, LaterSheet, ProofSheet, Toasts, UrgeSheet } from './overlays/Sheets';
@@ -200,6 +201,7 @@ export default function App() {
       <ProposalSheet />
       <PairLinkSheet />
       <JoinWarning />
+      <OverrideSheet />
       <UrgeSheet />
       <LaterSheet />
       <GuardNudge />

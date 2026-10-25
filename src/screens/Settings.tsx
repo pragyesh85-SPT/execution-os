@@ -13,7 +13,8 @@ import { hubRequest, syncNow, testHub } from '../state/sync';
 import { useStore, type LocalPrefs } from '../state/store';
 import { PROVIDERS, testAi, type Provider } from '../lib/ai';
 import { exactAlarmStatus, notificationPermission, notify, openExactAlarmSettings, requestNotifications } from '../lib/notify';
-import { isAndroid, isCapacitor, isElectron, native, platformLabel, type HubInfo } from '../lib/platform';
+import { isAndroid, isCapacitor, isElectron, native, openExternal, platformLabel, type HubInfo } from '../lib/platform';
+import { checkForUpdates, type UpdateStatus } from '../lib/updates';
 import { startAlarm, unlockAudio } from '../lib/sound';
 import { Rules } from './Rules';
 import { ActivitySection, ConnectorSection } from './ConnectorSettings';
@@ -995,6 +996,16 @@ function HealthSection() {
 
 function AboutSection() {
   const openOverlay = useStore((s) => s.open);
+  const [upd, setUpd] = useState<UpdateStatus | null>(null);
+  const [checking, setChecking] = useState(false);
+  const runCheck = async () => {
+    setChecking(true);
+    try {
+      setUpd(await checkForUpdates());
+    } finally {
+      setChecking(false);
+    }
+  };
   return (
     <div className="stack lg">
       <section className="card">
@@ -1007,10 +1018,44 @@ function AboutSection() {
           <dd>Rules engine = authority. AI = strategist. Never carry lateness forward block by block.</dd>
         </dl>
         <div className="btn-row" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={() => openOverlay({ welcome: true, welcomeAgain: true })}>
+          <button className="btn" disabled={checking} onClick={() => void runCheck()}>
+            <RefreshCw size={14} /> {checking ? 'Checking…' : 'Check for updates'}
+          </button>
+          <button className="btn ghost" onClick={() => openOverlay({ welcome: true, welcomeAgain: true })}>
             Run the welcome wizard again
           </button>
         </div>
+        {upd && (
+          <div className="stack" style={{ gap: 6, marginTop: 10, fontSize: 14 }}>
+            {upd.error ? (
+              <span className="muted">{upd.error}</span>
+            ) : !upd.available ? (
+              <span style={{ color: 'var(--ok)' }}>You have the latest version ({upd.current}).</span>
+            ) : upd.mode === 'auto' ? (
+              upd.ready ? (
+                <div className="row wrap">
+                  <span>Version {upd.latest} is downloaded.</span>
+                  <button className="btn primary sm" onClick={() => void native?.installUpdate?.()}>
+                    Restart to update
+                  </button>
+                </div>
+              ) : (
+                <span>Version {upd.latest} is downloading in the background; it installs on the next restart.</span>
+              )
+            ) : upd.mode === 'hub' ? (
+              <span>Version {upd.latest} is out. This browser version updates when the PC app is updated.</span>
+            ) : (
+              <div className="row wrap">
+                <span>New version available — {upd.latest}.</span>
+                {upd.url && (
+                  <button className="btn primary sm" onClick={() => openExternal(upd.url!)}>
+                    Download
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </section>
       <section className="card">
         <h2 className="card-title">Built on this research</h2>
