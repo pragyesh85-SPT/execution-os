@@ -13,6 +13,7 @@ import { startHub, type Hub } from '../server/hub';
 const PORT = Number(process.env.EOS_PORT ?? 4747);
 const BASE = `http://localhost:${PORT}`;
 const startHidden = process.argv.includes('--hidden');
+const firstRun = process.argv.includes('--first-run'); // passed once by scripts/install.ps1
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -57,6 +58,11 @@ async function boot() {
       dialog.showErrorBox('Execution OS', `Could not start the local hub:\n${e.message}`);
     }
     // Port busy = the stand-alone hub is already running; this window simply connects to it.
+  }
+  if (firstRun) {
+    // The one-command installer asks for this: keep the alarms and sync running from logon.
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+    log('first run: start with Windows enabled');
   }
   createWindow();
   createTray();

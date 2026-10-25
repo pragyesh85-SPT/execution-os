@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react';
 import { CATEGORY_META } from '../core/defaults';
 import { minutesForBlock, missionFor, planFor, proofFor } from '../core/engine';
 import type { ProofStatus } from '../core/types';
-import { clockOf, dayStartMs, fmtClock, fmtDur, MIN, offsetOf } from '../core/time';
+import { clockOf, dayStartMs, fmtClock, fmtDur, MIN } from '../core/time';
 import { Check, EASE, Field, Sheet, catColor } from '../components/ui';
-import { addException, addLater, attempt, bypassWake, deleteLater, logDistraction, pauseGuard, saveProof, toggleLater, today, updateSettings, updateTask } from '../state/actions';
+import { addException, addLater, attempt, deleteLater, logDistraction, saveProof, toggleLater, updateTask } from '../state/actions';
 import { useToday } from '../state/hooks';
 import { useStore } from '../state/store';
 import { githubProof } from '../lib/github';
-import { requestNotifications } from '../lib/notify';
-import { successTone, unlockAudio } from '../lib/sound';
+import { successTone } from '../lib/sound';
 
 // ---------------- proof of work ----------------
 
@@ -392,74 +391,3 @@ export function Toasts() {
     </div>
   );
 }
-
-// ---------------- first run ----------------
-
-export function Welcome() {
-  const show = useStore((s) => s.overlay.welcome);
-  const onboarded = useStore((s) => s.doc.settings.onboarded);
-  const name0 = useStore((s) => s.doc.settings.name);
-  const wake0 = useStore((s) => s.doc.settings.wakeGate);
-  const setOpen = useStore((s) => s.open);
-  const setTab = useStore((s) => s.setTab);
-  const [name, setName] = useState(name0);
-  const [wake, setWake] = useState(wake0);
-  const doc = useStore((s) => s.doc);
-  const now = Date.now();
-  const missedToday = offsetOf(now, today(), doc.settings.dayStart) > doc.settings.wakeGraceMin;
-
-  const finish = async (goClock: boolean) => {
-    unlockAudio();
-    await requestNotifications().catch(() => false);
-    updateSettings({ name: name.trim() || 'PJ', wakeGate: wake, onboarded: true, startedOn: doc.settings.startedOn ?? today() });
-    // Do not ring a wake alarm for a morning that already passed before the app was installed.
-    if (wake && missedToday) bypassWake(today());
-    setOpen({ welcome: false });
-    if (goClock) setTab('clock');
-  };
-
-  return (
-    <Sheet open={show && !onboarded} onClose={() => {}} dismissable={false} title="Execution OS" subtitle="Given what has actually happened today, what is the single best thing to do now?">
-      <div className="stack lg">
-        <div className="welcome-steps">
-          {[
-            ['Protect four things', 'Sleep → Devotion → IIT → Founder. Meals, care and breaks live around them.'],
-            ['One mission per block', 'Not “study” — “Finish Assignment 3, Q1–Q5”. Set them on the Plan page, by hand or with AI.'],
-            ['Drift is expected', 'Late? The status turns amber, then red, and Rescue Mode rebuilds the rest of the day.'],
-            ['Proof, not presence', 'At the end of each focus block, record what actually got done.'],
-          ].map(([t, d], i) => (
-            <motion.div key={t} className="welcome-step" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.08, duration: 0.3, ease: EASE }}>
-              <span className="n">{i + 1}</span>
-              <div>
-                <strong>{t}</strong>
-                <div className="muted" style={{ fontSize: 14 }}>
-                  {d}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-        <Field label="What should Execution OS call you?">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <label className="row" style={{ fontSize: 14 }}>
-          <Check on={wake} onChange={() => setWake(!wake)} label="Wake Gate" />
-          Use the Wake Gate at 4:00 AM (print your QR card from Settings → Wake Gate)
-        </label>
-        <div className="btn-row">
-          <button className="btn primary lg" onClick={() => void finish(false)}>
-            Start with the recommended clock
-          </button>
-          <button className="btn lg" onClick={() => void finish(true)}>
-            Edit my clock first
-          </button>
-        </div>
-        <p className="faint" style={{ fontSize: 12, margin: 0 }}>
-          Recommended clock: 7h sleep (9 PM–4 AM) · 5h devotion · 2h protected IIT · 6h founder · 2h meals · 1h care · 1h rest/buffer.
-        </p>
-      </div>
-    </Sheet>
-  );
-}
-
-
