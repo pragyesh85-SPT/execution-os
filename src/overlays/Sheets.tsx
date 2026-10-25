@@ -6,7 +6,7 @@ import { minutesForBlock, missionFor, planFor, proofFor } from '../core/engine';
 import type { ProofStatus } from '../core/types';
 import { clockOf, dayStartMs, fmtClock, fmtDur, MIN, offsetOf } from '../core/time';
 import { Check, EASE, Field, Sheet, catColor } from '../components/ui';
-import { addException, addLater, bypassWake, deleteLater, logDistraction, pauseGuard, saveProof, toggleLater, today, updateSettings, updateTask } from '../state/actions';
+import { addException, addLater, attempt, bypassWake, deleteLater, logDistraction, pauseGuard, saveProof, toggleLater, today, updateSettings, updateTask } from '../state/actions';
 import { useToday } from '../state/hooks';
 import { useStore } from '../state/store';
 import { githubProof } from '../lib/github';
@@ -322,7 +322,7 @@ export function GuardNudge() {
             className="btn ghost"
             onClick={() => {
               const s = Math.floor(off);
-              addException(date, s, Math.min(1440, s + 30), `Break · ${guard?.source ?? 'entertainment'}`);
+              if (!attempt(() => addException(date, s, Math.min(1440, s + 30), `Break · ${guard?.source ?? 'entertainment'}`))) return;
               toast('Logged as a planned 30-minute break. It counts against this week’s entertainment budget.', 'info');
               close();
             }}

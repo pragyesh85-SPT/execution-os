@@ -57,7 +57,11 @@ export interface PlanBlock {
   exception?: boolean; // planned exception (e.g. movie)
   rescued?: boolean; // placed by Rescue Mode
   missed?: boolean; // ghost of a block that was missed before a rescue
+  pinned?: boolean; // v2: the user locked this block to its clock time for this day (implies fixed)
+  source?: BlockSource; // v2: who created the block (undefined = the master clock)
 }
+
+export type BlockSource = 'template' | 'user' | 'rescue' | 'ai' | 'import';
 
 export interface Step {
   id: string;
@@ -80,9 +84,15 @@ export interface Outcome {
   done: boolean;
 }
 
+export type RescueStrategy = 'balanced' | 'protect_study' | 'ship' | 'light';
+export type RescueReason = 'wake' | 'not_started' | 'missed_protected' | 'manual';
+
 export interface RescueInfo {
   at: number; // ms
   summary: string[];
+  strategy?: RescueStrategy; // v2
+  scope?: 'today' | 'week'; // v2
+  reason?: RescueReason; // v2: why the rescue was needed (analytics)
 }
 
 export interface DayPlan extends Synced {
@@ -90,7 +100,8 @@ export interface DayPlan extends Synced {
   blocks: PlanBlock[];
   missions: Record<string, Mission>;
   outcomes: Outcome[];
-  rescue?: RescueInfo;
+  rescue?: RescueInfo; // the latest applied rescue
+  rescues?: RescueInfo[]; // v2: every rescue applied to this day, oldest first
   guardPausedUntil?: number; // ms
   plannedBy?: 'manual' | 'ai' | 'import';
   dismissedRescueAt?: number; // ms - user chose "not now" on a rescue suggestion

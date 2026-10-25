@@ -1,17 +1,19 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ClipboardCopy, ClipboardPaste, Clapperboard, Plus, RotateCcw, Sparkles, Trash, WandSparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORY_META } from '../core/defaults';
+import { CATEGORY_META, CATEGORY_ORDER } from '../core/defaults';
 import { liveBlocks, missionFor, planFor } from '../core/engine';
 import { fullPlannerPrompt, parsePlannerReply, PLANNER_SYSTEM, plannableBlocks, plannerContext, plannerUserPrompt, smartFill, taskValue, toMission, toOutcomes, type PlannerResult } from '../core/planner';
 import { entertainmentBalance } from '../core/stats';
-import type { Area, Mission, Outcome, PlanBlock, Task } from '../core/types';
-import { addDays, clockOf, fmtClock, fmtDur, longDate, offsetFromClock, parseClock, parseKey, weekKey } from '../core/time';
-import { CatChip, Check, EASE, Field, Segmented, Sheet, catColor } from '../components/ui';
-import { addException, addTask, deleteTask, removeException, resetDayToTemplate, setMission, setOutcomes, setPlanMeta, today, uid, updateTask } from '../state/actions';
+import type { Area, Category, Mission, Outcome, PlanBlock, Task } from '../core/types';
+import { addDays, clockOf, fmtClock, fmtDur, longDate, offsetFromClock, offsetOf, parseClock, parseKey, weekKey } from '../core/time';
+import { CatChip, Check, EASE, Field, Segmented, Sheet, Toggle, catColor } from '../components/ui';
+import { addDayBlock, addException, addTask, attempt, deleteTask, removeException, resetDayToTemplate, setMission, setOutcomes, setPlanMeta, today, uid, updateTask } from '../state/actions';
 import { useStore } from '../state/store';
 import { aiComplete } from '../lib/ai';
 import { useNow } from '../state/runtime';
+import { useFlag } from '../state/hooks';
+import { BlockRow } from '../components/BlockRow';
 
 export function Plan() {
   const doc = useStore((s) => s.doc);
@@ -20,6 +22,7 @@ export function Plan() {
   const base = today();
   const date = which === 'today' ? base : addDays(base, 1);
   const plan = planFor(doc, date);
+  const pins = useFlag('pins');
 
   return (
     <div>
@@ -59,7 +62,7 @@ export function Plan() {
               {plannableBlocks(doc, date, now).length === 0 && <p className="muted">No focus blocks left on this day.</p>}
             </div>
           </section>
-          <ExceptionsCard date={date} />
+          {pins ? <AddBlockCard date={date} /> : <ExceptionsCard date={date} />}
         </div>
         <TaskInbox date={date} />
       </div>
@@ -465,7 +468,7 @@ function ExceptionsCard({ date }: { date: string }) {
     const e = Math.min(1440, s + dur);
     const over = plan.blocks.filter((b) => !b.missed && b.fixed && !b.exception && b.s < e && b.e > s);
     if (over.length) return toast(`That overlaps a fixed anchor (${over[0].title}). Pick another time.`, 'warn');
-    addException(date, s, e, title.trim() || 'Entertainment');
+    if (!attempt(() => addException(date, s, e, title.trim() || 'Entertainment'))) return;
     toast(`${title} planned. It is now part of the schedule, not procrastination.`, 'success');
   };
 
@@ -529,6 +532,156 @@ function ExceptionsCard({ date }: { date: string }) {
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+// ---------------- add to this day (v2, flag "pins") ----------------
+
+const ADDABLE: Category[] = CATEGORY_ORDER.filter((c) => c !== 'sleep' && c !== 'buffer');
+
+function AddBlockCard({ date }: { date: string }) {
+  const doc = useStore((s) => s.doc);
+  const now = useNow();
+  const ds = doc.settings.dayStart;
+  const plan = planFor(doc, date);
+  const toast = useStore((s) => s.toast);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<Category>('founder');
+  const [start, setStart] = useState('16:00');
+  const [dur, setDur] = useState(60);
+  const [pinned, setPinned] = useState(true);
+  const [missionTitle, setMissionTitle] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const bal = entertainmentBalance(doc, weekKey(date), now);
+  const ent = category === 'entertainment';
+  const off = offsetOf(now, date, ds);
+  const rows = liveBlocks(plan).filter((b) => showAll || b.e > off);
+  const exceptions = plan.blocks.filter((b) => b.exception);
+
+  const add = () => {
+    const clock = parseClock(start);
+    if (clock === null) return toast('Use a time like 16:00 or 4:00 pm.', 'warn');
+    const s = offsetFromClock(clock, ds);
+    if (s % 5) return toast('Use 5-minute steps, e.g. 16:05.', 'warn');
+    const e = Math.min(1440, s + dur);
+    const name = title.trim() || (ent ? 'Entertainment' : CATEGORY_META[category].label);
+    const ok = attempt(() =>
+      addDayBlock(date, {
+        title: name,
+        category,
+        start: s,
+        end: e,
+        pinned: !ent && pinned,
+        exception: ent,
+        mission: !ent && missionTitle.trim() ? { title: missionTitle.trim(), steps: [], source: 'manual' } : undefined,
+      }),
+    );
+    if (!ok) return;
+    toast(ent ? `${name} planned. It is part of the schedule now, not procrastination.` : pinned ? `${name} pinned at ${fmtClock(clock)}.` : `${name} added at ${fmtClock(clock)}.`, 'success');
+    setTitle('');
+    setMissionTitle('');
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card-title">
+        <span>Add to this day</span>
+        {ent && (
+          <span className="mono" style={{ textTransform: 'none', letterSpacing: 0, color: bal.remaining < 0 ? 'var(--bad)' : undefined }}>
+            {fmtDur(Math.max(0, bal.remaining))} of {fmtDur(bal.budget)} fun left this week
+          </span>
+        )}
+      </h2>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Put a specific thing at a specific time — “4:00–5:00 PM Investor call prep”. Pinned blocks stay put: Rescue rebuilds everything else around them.
+      </p>
+      <div className="form-grid">
+        <Field label="What">
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ent ? 'Movie' : 'Investor call prep'} />
+        </Field>
+        <Field label="Category">
+          <select className="select" value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+            {ADDABLE.map((c) => (
+              <option key={c} value={c}>
+                {CATEGORY_META[c].label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Starts at">
+          <input className="input mono" value={start} onChange={(e) => setStart(e.target.value)} placeholder="16:00" />
+        </Field>
+        <Field label="Duration">
+          <select className="select" value={dur} onChange={(e) => setDur(Number(e.target.value))}>
+            {[15, 30, 45, 60, 90, 120, 150, 180, 240].map((m) => (
+              <option key={m} value={m}>
+                {fmtDur(m)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {!ent && (
+          <Field label="Mission (optional)">
+            <input className="input" value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} placeholder="Deck v3 ready to send" />
+          </Field>
+        )}
+      </div>
+      {!ent && (
+        <label className="row" style={{ marginTop: 12, fontSize: 14, gap: 10 }}>
+          <Toggle on={pinned} onChange={setPinned} label="Pin to this time" />
+          Pin to this time
+        </label>
+      )}
+      <div className="btn-row" style={{ marginTop: 12 }}>
+        <button className="btn primary" onClick={add}>
+          <Plus size={16} /> Add to {date === today() ? 'today' : 'tomorrow'}
+        </button>
+        <button
+          className="btn ghost"
+          onClick={() => {
+            resetDayToTemplate(date);
+            toast('Day reset to the master clock. Missions and outcomes kept.', 'success');
+          }}
+        >
+          <RotateCcw size={16} /> Reset day to master clock
+        </button>
+      </div>
+
+      {exceptions.length > 0 && (
+        <div className="stack" style={{ marginTop: 16 }}>
+          {exceptions.map((x) => (
+            <div key={x.id} className="row between" style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+              <span className="row">
+                <Clapperboard size={14} />
+                {x.title}
+                <span className="mono faint">
+                  {fmtClock(clockOf(x.s, ds))}–{fmtClock(clockOf(x.e, ds))}
+                </span>
+              </span>
+              <button className="btn ghost sm danger" onClick={() => removeException(date, x.id)}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="divider" />
+      <h3 className="card-title" style={{ marginBottom: 6 }}>
+        <span>This day's blocks</span>
+        <button className="btn ghost sm" onClick={() => setShowAll(!showAll)}>
+          {showAll ? 'Hide past' : 'Show all'}
+        </button>
+      </h3>
+      <p className="faint" style={{ fontSize: 12, margin: '0 0 8px' }}>
+        Tap the pin to lock a block to its time. Long-press (phone) or right-click (desktop) a block to edit its time or mission.
+      </p>
+      <div className="timeline">
+        {rows.map((b) => (
+          <BlockRow key={b.id} doc={doc} date={date} block={b} past={b.e <= off} sub={missionFor(plan, b)?.title ?? `${CATEGORY_META[b.category].label} · ${fmtDur(b.e - b.s)}`} />
+        ))}
+      </div>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import { logicalDate, offsetOf } from './core/time';
 import { EASE } from './components/ui';
 import { FocusMode } from './overlays/FocusMode';
 import { RescueSheet } from './overlays/RescueSheet';
+import { BlockSheet } from './overlays/BlockSheet';
 import { ConflictSheet } from './overlays/ConflictSheet';
 import { GuardNudge, LaterSheet, ProofSheet, Toasts, UrgeSheet, Welcome } from './overlays/Sheets';
 import { WakeGate } from './overlays/WakeGate';
@@ -166,6 +167,7 @@ export default function App() {
       <FocusMode />
       <RescueSheet />
       <ProofSheet />
+      <BlockSheet />
       <UrgeSheet />
       <LaterSheet />
       <GuardNudge />

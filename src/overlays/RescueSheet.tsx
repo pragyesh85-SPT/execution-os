@@ -7,8 +7,9 @@ import { buildRescue } from '../core/rescue';
 import type { PlanBlock } from '../core/types';
 import { clockOf, fmtClock, fmtDur } from '../core/time';
 import { EASE, Segmented, Sheet, catColor } from '../components/ui';
-import { applyRescue, dismissRescue } from '../state/actions';
-import { useToday } from '../state/hooks';
+import { applyRescue, attempt, dismissRescue } from '../state/actions';
+import { useFlag, useToday } from '../state/hooks';
+import { RescueV2 } from './RescueV2';
 import { useStore } from '../state/store';
 import { successTone } from '../lib/sound';
 
@@ -18,9 +19,10 @@ import { successTone } from '../lib/sound';
 export function RescueSheet() {
   const open = useStore((s) => s.overlay.rescue);
   const setOpen = useStore((s) => s.open);
+  const v2 = useFlag('rescueV2');
   return (
     <AnimatePresence>
-      {open && <RescueInner key="rescue" onClose={() => setOpen({ rescue: false })} />}
+      {open && (v2 ? <RescueV2 key="rescue2" onClose={() => setOpen({ rescue: false })} /> : <RescueInner key="rescue" onClose={() => setOpen({ rescue: false })} />)}
     </AnimatePresence>
   );
 }
@@ -77,7 +79,7 @@ function RescueInner({ onClose }: { onClose: () => void }) {
           <button
             className="btn primary"
             onClick={() => {
-              applyRescue(date, result);
+              if (!attempt(() => applyRescue(date, result))) return;
               successTone();
               toast('Rescued plan applied. One block at a time from here.', 'success');
               onClose();

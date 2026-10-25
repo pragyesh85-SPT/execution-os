@@ -1,7 +1,8 @@
 import { blocksFromTemplate, missionFor, planFor } from './engine';
 import { defaultSettings, emptyDoc } from './defaults';
+import type { FeatureKey } from './features';
 import { mergeDocs } from './merge';
-import type { RescueResult } from './rescue';
+import type { RescueResult, WeekRescueResult } from './rescue';
 import {
   COLLECTIONS,
   type Area,
@@ -13,6 +14,8 @@ import {
   type Outcome,
   type PlanBlock,
   type ProofStatus,
+  type RescueInfo,
+  type RescueReason,
   type Review,
   type Rule,
   type Settings,
@@ -28,6 +31,17 @@ import { logicalDate, offsetOf } from './time';
 // an automation is always the exact same change, with history and undo.
 
 export type Op<R = void> = (d: Doc, now: number) => R;
+
+/** A refusal with a message a person (or an AI) can act on. Ops throw it; nothing is written. */
+export class OpError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'OpError';
+  }
+}
 
 let rand: () => number = Math.random;
 
@@ -168,39 +182,146 @@ export const toggleStep =
 
 // ---------- plan editing ----------
 
-/** Insert a block into a day, cutting whatever flexible blocks it overlaps. */
+/** Insert a block into a day, cutting whatever flexible blocks it overlaps. Both halves keep the origin, so missions follow. */
 export function carve(blocks: PlanBlock[], nb: PlanBlock): PlanBlock[] {
   const out: PlanBlock[] = [];
+  const ids = new Set(blocks.map((b) => b.id));
+  const fresh = (base: string) => {
+    let n = 2;
+    while (ids.has(`${base}~${n}`)) n++;
+    const id = `${base}~${n}`;
+    ids.add(id);
+    return id;
+  };
   for (const b of blocks) {
     if (b.missed || b.e <= nb.s || b.s >= nb.e) {
       out.push(b);
       continue;
     }
     if (b.s < nb.s) out.push({ ...b, e: nb.s });
-    if (b.e > nb.e) out.push({ ...b, id: b.s < nb.s ? `${b.id}~2` : b.id, origin: b.origin ?? b.id, s: nb.e });
+    if (b.e > nb.e) out.push({ ...b, id: b.s < nb.s ? fresh(b.id) : b.id, origin: b.origin ?? b.id, s: nb.e });
   }
   out.push(nb);
   return out.sort((a, b) => a.s - b.s);
 }
 
+const CATEGORY_PRIORITY: Record<Category, number> = { sleep: 1, devotion: 1, iit: 1, founder: 3, meal: 2, care: 3, rest: 5, buffer: 5, entertainment: 2 };
+
+const clockText = (d: Doc, off: number) => {
+  const c = (((d.settings.dayStart + off) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
+};
+
+function checkSpan(s: number, e: number) {
+  if (!Number.isInteger(s) || !Number.isInteger(e) || s % 5 || e % 5) throw new OpError('not_aligned', 'Start and end must be on 5-minute marks.');
+  if (s < 0 || e > 1440 || s >= e) throw new OpError('bad_range', 'The block must start before it ends, inside the day.');
+}
+
+/** The template's fixed value for a block (looked up by origin); undefined for blocks that did not come from the template. */
+function templateFixed(d: Doc, b: PlanBlock): boolean | undefined {
+  return d.template.blocks.find((x) => x.id === (b.origin ?? b.id))?.fixed;
+}
+
+/** A master-clock anchor (sleep, aarti): fixed, but not by a pin. Edited only in the Clock screen. */
+export const isAnchor = (d: Doc, b: PlanBlock) => b.fixed && !b.pinned && !b.exception && templateFixed(d, b) === true;
+
+function overlapFixed(blocks: PlanBlock[], s: number, e: number, ignore?: string): PlanBlock | undefined {
+  return blocks.find((b) => !b.missed && b.id !== ignore && b.fixed && b.s < e && b.e > s);
+}
+
+/** Pin (or unpin) a block to its clock time for this day. Pinned implies fixed: Rescue never moves it. */
+export const pinBlock =
+  (date: string, blockId: string, pinned: boolean): Op =>
+  (d, now) => {
+    const p = ensurePlan(d, date, now);
+    const b = p.blocks.find((x) => x.id === blockId);
+    if (!b) throw new OpError('no_block', `Block ${blockId} does not exist on ${date}.`);
+    if (b.missed) throw new OpError('missed', 'A missed block cannot be pinned.');
+    if (b.category === 'buffer') throw new OpError('buffer', 'Buffer time cannot be pinned — add a block instead.');
+    if (pinned === !!b.pinned) return;
+    if (pinned) {
+      if (isAnchor(d, b)) throw new OpError('anchor', `"${b.title}" is an anchor — it is already fixed. Edit it in the Clock screen.`);
+      p.blocks = p.blocks.map((x) => (x.id === blockId ? { ...x, pinned: true, fixed: true } : x));
+    } else {
+      p.blocks = p.blocks.map((x) => {
+        if (x.id !== blockId) return x;
+        const { pinned: _drop, ...rest } = x;
+        return { ...rest, fixed: templateFixed(d, x) ?? !!x.exception };
+      });
+    }
+  };
+
+export interface NewDayBlock {
+  title: string;
+  category: Category;
+  start: number; // offset from the logical day start
+  end: number;
+  pinned?: boolean; // default true
+  focus?: boolean;
+  mission?: Mission;
+  source?: PlanBlock['source'];
+  exception?: boolean; // planned entertainment (the v1 "planned exception")
+}
+
+/** Put a specific thing at a specific time. Refuses to overlap any fixed block; cuts flexible ones. */
+export const addDayBlock =
+  (date: string, nb: NewDayBlock): Op<string> =>
+  (d, now) => {
+    checkSpan(nb.start, nb.end);
+    const title = nb.title.trim().slice(0, 120);
+    if (!title) throw new OpError('no_title', 'Give the block a name.');
+    const p = ensurePlan(d, date, now);
+    const clash = overlapFixed(p.blocks, nb.start, nb.end);
+    if (clash) {
+      const what = clash.pinned ? 'pinned block' : clash.exception ? 'planned block' : 'anchor';
+      throw new OpError('overlap_fixed', `That overlaps the ${what} "${clash.title}" (${clockText(d, clash.s)}–${clockText(d, clash.e)}). Pick another time.`);
+    }
+    const pinned = nb.exception ? false : (nb.pinned ?? true);
+    const len = nb.end - nb.start;
+    const def = d.template.blocks.find((x) => x.category === nb.category);
+    const block: PlanBlock = {
+      id: uid(nb.exception ? 'x' : 'u', now),
+      title,
+      category: nb.category,
+      s: nb.start,
+      e: nb.end,
+      fixed: pinned || !!nb.exception,
+      focus: nb.focus ?? (nb.category === 'iit' || nb.category === 'founder'),
+      minMinutes: pinned || nb.exception ? len : Math.min(len, def?.minMinutes ?? 0),
+      priority: nb.exception ? 2 : pinned ? 1 : (def?.priority ?? CATEGORY_PRIORITY[nb.category]),
+      ...(nb.exception ? { exception: true } : {}),
+      ...(pinned ? { pinned: true } : {}),
+      source: nb.source ?? 'user',
+    };
+    p.blocks = carve(p.blocks, block);
+    if (nb.mission) p.missions[block.id] = nb.mission;
+    return block.id;
+  };
+
+/** Move a flexible block to a new time. The time it leaves becomes Buffer. */
+export const moveDayBlock =
+  (date: string, blockId: string, start: number, end: number): Op =>
+  (d, now) => {
+    checkSpan(start, end);
+    const p = ensurePlan(d, date, now);
+    const b = p.blocks.find((x) => x.id === blockId && !x.missed);
+    if (!b) throw new OpError('no_block', `Block ${blockId} does not exist on ${date}.`);
+    if (b.fixed) throw new OpError('fixed', `"${b.title}" is ${b.pinned ? 'pinned' : 'fixed'} — unpin it first.`);
+    const clash = overlapFixed(p.blocks, start, end, blockId);
+    if (clash) throw new OpError('overlap_fixed', `That overlaps "${clash.title}" (${clockText(d, clash.s)}–${clockText(d, clash.e)}), which is fixed.`);
+    const vacated: PlanBlock = { id: uid('buf', now), title: 'Buffer', category: 'buffer', s: b.s, e: b.e, fixed: false, focus: false, minMinutes: 0, priority: 5 };
+    const rest = p.blocks.map((x) => (x.id === blockId ? vacated : x));
+    p.blocks = carve(rest, { ...b, s: start, e: end, minMinutes: Math.min(b.minMinutes, end - start) });
+  };
+
+
+/** A planned exception (e.g. a movie): a fixed entertainment block. Snaps to 5-minute marks. */
 export const addException =
   (date: string, s: number, e: number, title: string, category: Category = 'entertainment'): Op<string> =>
   (d, now) => {
-    const p = ensurePlan(d, date, now);
-    const nb: PlanBlock = {
-      id: uid('x', now),
-      title,
-      category,
-      s,
-      e,
-      fixed: true,
-      focus: false,
-      minMinutes: e - s,
-      priority: 2,
-      exception: true,
-    };
-    p.blocks = carve(p.blocks, nb);
-    return nb.id;
+    const start = Math.max(0, Math.floor(s / 5) * 5);
+    const end = Math.min(1440, Math.max(start + 5, Math.ceil(e / 5) * 5));
+    return addDayBlock(date, { title: title || 'Entertainment', category, start, end, focus: false, exception: true, source: 'user' })(d, now);
   };
 
 export const removeException =
@@ -221,21 +342,58 @@ export const resetDayToTemplate =
     delete p.dismissedRescueAt;
   };
 
+export interface RescueMeta {
+  scope?: 'today' | 'week';
+  reason?: RescueReason;
+}
+
+function writeRescue(d: Doc, date: string, result: RescueResult, now: number, meta: RescueMeta, toInbox: (b: PlanBlock) => boolean) {
+  const p = ensurePlan(d, date, now);
+  // Pins are never moved: refuse a result built before the user pinned something.
+  for (const pin of p.blocks.filter((b) => b.pinned && !b.missed)) {
+    const out = result.blocks.find((b) => b.id === pin.id);
+    if (!out || out.s !== pin.s || out.e !== pin.e) throw new OpError('stale', `"${pin.title}" was pinned after this rescue was built. Open Rescue again.`);
+  }
+  p.blocks = result.blocks;
+  const info: RescueInfo = { at: now, summary: result.summary };
+  if (result.strategy) info.strategy = result.strategy;
+  if (meta.scope) info.scope = meta.scope;
+  if (meta.reason) info.reason = meta.reason;
+  p.rescue = info;
+  p.rescues = [...(p.rescues ?? []), info].slice(-20);
+  for (const [blockId, m] of Object.entries(result.missions ?? {})) p.missions[blockId] = m;
+  // Missions of focus blocks that no longer fit become tasks, so nothing silently disappears.
+  for (const b of result.dropped) {
+    if (!b.focus || !toInbox(b)) continue;
+    const m = missionFor(p, b);
+    if (!m) continue;
+    const id = uid('t', now);
+    d.tasks[id] = { id, u: now, title: m.title, area: areaOf(b.category), priority: 2, done: false, carried: true, createdAt: now, estimate: m.estimate };
+  }
+}
+
 export const applyRescue =
-  (date: string, result: RescueResult): Op =>
+  (date: string, result: RescueResult, meta: RescueMeta = {}): Op =>
   (d, now) => {
-    const p = ensurePlan(d, date, now);
-    p.blocks = result.blocks;
-    p.rescue = { at: now, summary: result.summary };
-    // Missions of focus blocks that no longer fit become tasks, so nothing silently disappears.
-    for (const b of result.dropped) {
-      if (!b.focus) continue;
-      const m = missionFor(p, b);
-      if (!m) continue;
-      const id = uid('t', now);
-      d.tasks[id] = { id, u: now, title: m.title, area: areaOf(b.category), priority: 2, done: false, carried: true, createdAt: now, estimate: m.estimate };
+    writeRescue(d, date, result, now, { scope: 'today', ...meta }, () => true);
+  };
+
+/** Apply today's rescue and move today's dropped missions into this week's matching focus blocks. */
+export const applyWeekRescue =
+  (week: WeekRescueResult, meta: RescueMeta = {}): Op =>
+  (d, now) => {
+    const inbox = new Set(week.toInbox.map((x) => x.blockId));
+    writeRescue(d, week.date, week.today, now, { ...meta, scope: 'week' }, (b) => inbox.has(b.id));
+    for (const day of week.days) {
+      const p = ensurePlan(d, day.date, now);
+      for (const line of day.lines) {
+        const m = day.missions[line.blockId];
+        if (!m || !p.blocks.some((b) => b.id === line.blockId) || p.missions[line.blockId]) continue; // never overwrite a mission set meanwhile
+        p.missions[line.blockId] = m;
+      }
     }
   };
+
 
 // ---------- tasks ----------
 
@@ -317,6 +475,13 @@ export const updateSettings =
   (patch: Partial<Settings>): Op =>
   (d, now) => {
     d.settings = { ...d.settings, ...patch, u: now };
+  };
+
+/** Switch one feature flag, based on the flags as they are at write time (never a stale copy). */
+export const setFeature =
+  (key: FeatureKey, on: boolean): Op =>
+  (d, now) => {
+    d.settings = { ...d.settings, features: { ...(d.settings.features ?? {}), [key]: on }, u: now };
   };
 
 export const saveTemplate =

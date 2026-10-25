@@ -13,6 +13,7 @@ import { useToday } from '../state/hooks';
 import { useStore } from '../state/store';
 import { successTone, unlockAudio } from '../lib/sound';
 import { SyncBadge } from '../components/SyncBadge';
+import { BlockRow, PinButton } from '../components/BlockRow';
 
 export function Today() {
   const t = useToday();
@@ -231,6 +232,10 @@ function NowCard({ block }: { block: PlanBlock | undefined }) {
             {fmtClock(clockOf(block.s, ds))} → {fmtClock(clockOf(block.e, ds))}
             {block.rescued && <span className="chip" style={{ marginLeft: 8 }}>Rescued</span>}
             {block.exception && <span className="chip" style={{ marginLeft: 8 }}>Planned exception</span>}
+            {block.pinned && <span className="chip" style={{ marginLeft: 8 }}>Pinned</span>}
+            <span style={{ marginLeft: 8, display: 'inline-flex', verticalAlign: 'middle' }}>
+              <PinButton doc={doc} date={date} block={block} />
+            </span>
           </div>
 
           {mission ? (
@@ -549,7 +554,7 @@ function ExperimentCard({ onOpen }: { onOpen: () => void }) {
 // ---------------- full day timeline ----------------
 
 function DayTimeline() {
-  const { doc, plan, date, off, now, ds } = useToday();
+  const { doc, plan, date, off, now } = useToday();
   const open = useStore((s) => s.open);
   const [expanded, setExpanded] = useState(false);
   const rows = plan.blocks;
@@ -569,28 +574,17 @@ function DayTimeline() {
             const tracked = minutesForBlock(doc, date, b.id, now);
             const current = !b.missed && off >= b.s && off < b.e;
             return (
-              <motion.div
-                layout
+              <BlockRow
                 key={b.id}
-                className="tl-row"
-                data-current={current}
-                data-past={b.e <= off}
-                data-missed={!!b.missed}
-                onClick={() => b.focus && b.e <= off && !b.missed && open({ proof: { date, blockId: b.id } })}
-                style={{ cursor: b.focus && b.e <= off ? 'pointer' : 'default' }}
-              >
-                <span className="tl-time">{fmtClock(clockOf(b.s, ds))}</span>
-                <span className="tl-bar" style={{ background: catColor(b.category) }} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="tl-title">{b.title}</div>
-                  <div className="tl-sub">
-                    {b.missed ? 'missed' : missionFor(plan, b)?.title ?? `${fmtDur(b.e - b.s)}`}
-                  </div>
-                </div>
-                <span className="tl-sub mono">
-                  {p ? (p.status === 'done' ? 'done ✓' : p.status === 'partial' ? 'partial' : 'not started') : tracked > 0 ? fmtDur(tracked) : ''}
-                </span>
-              </motion.div>
+                doc={doc}
+                date={date}
+                block={b}
+                current={current}
+                past={b.e <= off}
+                onClick={b.focus && b.e <= off && !b.missed ? () => open({ proof: { date, blockId: b.id } }) : undefined}
+                sub={b.missed ? 'missed' : missionFor(plan, b)?.title ?? `${fmtDur(b.e - b.s)}`}
+                right={p ? (p.status === 'done' ? 'done ✓' : p.status === 'partial' ? 'partial' : 'not started') : tracked > 0 ? fmtDur(tracked) : ''}
+              />
             );
           })}
       </motion.div>

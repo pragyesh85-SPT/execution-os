@@ -235,6 +235,24 @@ export function weekStats(doc: Doc, weekStart: string, nowMs: number): WeekStats
   };
 }
 
+/**
+ * Success rate per category and clock hour (`iit@600` = IIT blocks starting 10:00) over the days
+ * before `date`. Only slots with at least `minSamples` finished blocks count. Rescue v2 uses this to
+ * put priority-1 focus work into the hours where it usually gets done.
+ */
+export function slotRates(doc: Doc, date: string, nowMs: number, days = 28, minSamples = 2): Record<string, number> {
+  const start = trackingStart(doc) ?? '9999-12-31';
+  const dates: string[] = [];
+  for (let i = 1; i <= days; i++) {
+    const key = addDays(date, -i);
+    if (key < start) break;
+    dates.push(key);
+  }
+  const out: Record<string, number> = {};
+  for (const s of collect(doc, dates, nowMs).slots.values()) if (s.scheduled >= minSamples) out[s.key] = s.rate;
+  return out;
+}
+
 /** Rolling 30-day adherence, the health metric that replaces streaks. */
 export function monthAdherence(doc: Doc, today: string, nowMs: number): { value: number; prev: number | null; days: number } {
   const start = trackingStart(doc) ?? '9999-12-31';

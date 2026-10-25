@@ -7,7 +7,7 @@ import { FEATURE_INFO, FEATURE_KEYS, isOn } from '../core/features';
 import type { Settings as S } from '../core/types';
 import { fmtDur } from '../core/time';
 import { EASE, Field, Segmented, Sheet, Toggle } from '../components/ui';
-import { clearHistory, exportJson, importJson, resetEverything, updateSettings } from '../state/actions';
+import { clearHistory, exportJson, importJson, resetEverything, setFeature, updateSettings } from '../state/actions';
 import { syncNow, testHub } from '../state/sync';
 import { useStore, type LocalPrefs } from '../state/store';
 import { PROVIDERS, testAi, type Provider } from '../lib/ai';
@@ -882,7 +882,7 @@ function DataSection() {
 // ---------------- labs (feature flags) ----------------
 
 function LabsSection() {
-  const [s, set] = useSettings();
+  const [s] = useSettings();
   return (
     <section className="card">
       <p className="muted" style={{ marginTop: 0 }}>
@@ -891,7 +891,7 @@ function LabsSection() {
       </p>
       {FEATURE_KEYS.map((k) => (
         <Row key={k} name={FEATURE_INFO[k].label} desc={FEATURE_INFO[k].desc}>
-          <Toggle on={isOn(s, k)} onChange={(v) => set({ features: { ...(s.features ?? {}), [k]: v } })} label={FEATURE_INFO[k].label} />
+          <Toggle on={isOn(s, k)} onChange={(v) => setFeature(k, v)} label={FEATURE_INFO[k].label} />
         </Row>
       ))}
     </section>

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { activeSession, blockAt, dayStatus, liveBlocks, nextBlocks, planFor } from '../core/engine';
+import { isOn, type FeatureKey } from '../core/features';
 import { logicalDate, offsetOf } from '../core/time';
 import { useNow } from './runtime';
 import { useStore } from './store';
@@ -17,4 +18,9 @@ export function useToday() {
   const status = dayStatus(doc, now);
   const session = activeSession(doc);
   return { doc, now, date, plan, off, block, next, status, session, blocks: liveBlocks(plan), ds };
+}
+
+/** Is a v2 feature switched on (Settings → Labs)? */
+export function useFlag(k: FeatureKey): boolean {
+  return useStore((s) => isOn(s.doc.settings, k));
 }
