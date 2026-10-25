@@ -21,6 +21,7 @@ export interface GatewayOptions {
   extraRoutes?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean> | boolean; // OAuth (phase 11)
   authenticate?: (req: IncomingMessage) => string | null; // alternative auth (OAuth access tokens)
   wwwAuthenticate?: () => string;
+  rateLimitPerMin?: number; // default 60 requests per minute per address
 }
 
 export interface Gateway {
@@ -65,7 +66,7 @@ export function startGateway(opts: GatewayOptions): Promise<Gateway> {
   const log = opts.log ?? (() => {});
   ensureAuthTables(db);
   ensureAuditTable(db);
-  const guard = new Guard();
+  const guard = new Guard(opts.rateLimitPerMin ?? 60);
   const challenge = () => opts.wwwAuthenticate?.() ?? 'Bearer realm="execution-os"';
 
   const hostAllowed = (host: string | undefined) => {

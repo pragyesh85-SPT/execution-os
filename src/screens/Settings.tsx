@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { randomCode } from '../core/defaults';
 import { FEATURE_INFO, FEATURE_KEYS, isOn } from '../core/features';
+import { DEFAULT_JOIN_DOMAINS } from '../core/links';
 import type { Settings as S } from '../core/types';
 import { fmtDur } from '../core/time';
 import { EASE, Field, Segmented, Sheet, Toggle } from '../components/ui';
@@ -799,6 +800,12 @@ function IntegrationsSection() {
           <input className="input mono" type="password" value={local.githubToken} onChange={(e) => setLocal({ githubToken: e.target.value.trim() })} placeholder="github_pat_…" />
         </Field>
       </div>
+      <div className="divider" />
+      <h2 className="card-title">Class and meeting links</h2>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Imported classes get a one-tap Join only for these sites (https). Built in: {DEFAULT_JOIN_DOMAINS.join(', ')}. Any other link shows its real domain and asks first.
+      </p>
+      <ListEditor label="Extra allowed meeting sites" hint="One domain per line, e.g. webex.com or *.webex.com" value={s.joinDomains ?? []} onSave={(v) => set({ joinDomains: v })} />
       <div className="divider" />
       <h2 className="card-title">Coming next</h2>
       <p className="muted" style={{ margin: 0 }}>

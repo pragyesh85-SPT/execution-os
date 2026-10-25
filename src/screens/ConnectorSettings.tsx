@@ -312,6 +312,7 @@ export function ActivitySection() {
       </section>
     );
 
+  const lastOk = entries.find((e) => e.ok);
   const byDay = new Map<string, Entry[]>();
   for (const e of entries) {
     const k = new Date(e.at).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
@@ -320,6 +321,11 @@ export function ActivitySection() {
 
   return (
     <div className="stack lg">
+      {lastOk && (
+        <p className="muted" style={{ margin: 0 }}>
+          Last successful AI run: {lastOk.client} · {lastOk.tool} · {new Date(lastOk.at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}. Scheduled tasks in Claude (e.g. Sunday 20:00 import, weekday 06:00 brief) show up here when they run.
+        </p>
+      )}
       {[...byDay.entries()].map(([day, list]) => (
         <section key={day} className="card">
           <h2 className="card-title">{day}</h2>

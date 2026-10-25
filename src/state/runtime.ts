@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import { activeSession, blockAt, dayStatus, minutesForBlock, missionFor, planFor, proofFor, wakeDue } from '../core/engine';
 import type { Doc, PlanBlock, Rule } from '../core/types';
 import { clockOf, dayStartMs, fmtClock, logicalDate, MIN, offsetOf } from '../core/time';
-import { notify, scheduleAhead } from '../lib/notify';
+import { notify, onJoinNotification, scheduleAhead } from '../lib/notify';
+import { openJoin } from '../lib/join';
 import { isAndroid, native } from '../lib/platform';
 import { chime } from '../lib/sound';
 import { isOn } from '../core/features';
@@ -147,6 +148,19 @@ export function useRuntime() {
 
       runRules(doc, now, date, block);
 
+      // Class reminders with a Join link (Android schedules these as OS notifications instead).
+      if (!isAndroid) {
+        for (const b of plan.blocks) {
+          if (!b.joinUrl || !b.reminderMin || b.missed) continue;
+          const off = offsetOf(now, date, ds);
+          if (off >= b.s - b.reminderMin && off < b.s && fireOnce(`join:${date}:${b.id}`, date)) {
+            const url = b.joinUrl;
+            void notify(`${b.title} in ${Math.max(1, Math.round(b.s - off))} min`, 'Click to join.', { onClick: () => openJoin(url) });
+            st.toast(`${b.title} starts at ${fmtClock(clockOf(b.s, ds))}.`, 'info', { label: 'Join', run: () => openJoin(url) });
+          }
+        }
+      }
+
       // Proposals: expire overdue ones (once a minute is plenty; the op is idempotent).
       if (isOn(doc.settings, 'proposals') && now - lastExpiry > 60_000) {
         lastExpiry = now;
@@ -168,6 +182,7 @@ export function useRuntime() {
     // Native shells
     const offWake = native?.onWake(() => useStore.getState().open({ wake: true }));
     const offGuard = native?.onGuard((info) => useStore.getState().open({ guard: info }));
+    const offJoin = onJoinNotification(openJoin);
 
     // Android: keep OS notifications in step with the plan.
     scheduleAhead(useStore.getState().doc);
@@ -189,6 +204,7 @@ export function useRuntime() {
       window.clearInterval(id);
       offWake?.();
       offGuard?.();
+      offJoin();
       unsub();
     };
   }, []);

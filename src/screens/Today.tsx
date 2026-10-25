@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Check as CheckIcon, Crosshair, Flag, GitMerge, LifeBuoy, Pause, Play, Shield, ShieldOff, Sparkles, Square, Undo2, Zap } from 'lucide-react';
+import { Check as CheckIcon, Crosshair, Flag, GitMerge, LifeBuoy, Pause, Play, Shield, ShieldOff, Sparkles, Square, Undo2, Video, Zap } from 'lucide-react';
+import { checkJoinLink } from '../core/links';
+import { openJoin } from '../lib/join';
 import { useMemo, useState } from 'react';
 import { CATEGORY_META } from '../core/defaults';
 import { dayScore, minutesForBlock, missionFor, proofFor, wakeVerified } from '../core/engine';
@@ -293,6 +295,15 @@ function NowCard({ block }: { block: PlanBlock | undefined }) {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {block.joinUrl && (
+        <button className="btn primary lg join-btn" onClick={() => openJoin(block.joinUrl!)}>
+          <Video size={18} /> Join {block.title}
+          <span className="faint" style={{ fontSize: 12 }}>
+            {checkJoinLink(block.joinUrl, doc.settings)?.domain}
+          </span>
+        </button>
+      )}
 
       <div className="countdown">
         <RollingDigits text={fmtCountdown(endMs - now)} />

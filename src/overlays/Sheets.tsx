@@ -397,6 +397,50 @@ export function GuardNudge() {
   );
 }
 
+// ---------------- Join link outside the allow-list ----------------
+
+export function JoinWarning() {
+  const w = useStore((s) => s.overlay.joinWarn);
+  const open = useStore((s) => s.open);
+  const close = () => open({ joinWarn: undefined });
+  return (
+    <Sheet
+      open={!!w}
+      onClose={close}
+      title="Open this link?"
+      subtitle="It is not on your list of meeting sites (Settings → Integrations)."
+      footer={
+        <>
+          <button className="btn primary" onClick={close}>
+            Don't open
+          </button>
+          <button
+            className="btn ghost danger"
+            onClick={() => {
+              if (w) openExternal(w.url);
+              close();
+            }}
+          >
+            Open anyway
+          </button>
+        </>
+      }
+    >
+      <div className="stack">
+        <p style={{ margin: 0 }}>
+          This link goes to <strong className="mono">{w?.domain}</strong>.
+        </p>
+        <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+          Links that came from an imported email can be wrong or malicious. Open it only if you recognise the site.
+        </p>
+        <code className="mono" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+          {w?.url}
+        </code>
+      </div>
+    </Sheet>
+  );
+}
+
 // ---------------- toasts ----------------
 
 export function Toasts() {

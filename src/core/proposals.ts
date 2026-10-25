@@ -376,6 +376,8 @@ export const applyProposal =
       const plan = ensurePlan(d, day.date, now);
       // Last line of defence: pins never move, whatever the proposal says.
       for (const pin of plan.blocks.filter((b) => b.pinned && !b.missed)) {
+        // An import may move only the class it imported earlier (same externalId).
+        if (p.kind === 'import' && pin.externalId && day.blocks.some((b) => b.externalId === pin.externalId)) continue;
         const out = day.blocks.find((b) => b.id === pin.id);
         if (!out || out.s !== pin.s || out.e !== pin.e) throw new OpError('pin', `The proposal would move the pinned block "${pin.title}".`);
       }

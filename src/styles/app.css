@@ -2243,3 +2243,12 @@ html[data-motion='reduced'] {
   min-width: 48px;
   text-align: center;
 }
+
+/* ---------- v2: join ---------- */
+
+.join-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0 4px;
+}

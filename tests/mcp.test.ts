@@ -51,7 +51,7 @@ function raw(path: string, init: { method?: string; headers?: Record<string, str
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'eos-mcp-'));
-  hub = await startHub({ port: HUB, mcpPort: MCP, dbFile: join(dir, 'execution-os.db'), distDir: join(dir, 'dist'), tunnel: fakeTunnel, gateway: { ctx: { clock: () => NOW } } });
+  hub = await startHub({ port: HUB, mcpPort: MCP, dbFile: join(dir, 'execution-os.db'), distDir: join(dir, 'dist'), tunnel: fakeTunnel, gateway: { ctx: { clock: () => NOW }, rateLimitPerMin: 1000 } });
   hub.db.mutate((d, now) => {
     d.wake[DATE] = { id: DATE, u: now, verifiedAt: now, method: 'qr', lateMin: 0 };
     d.settings = { ...d.settings, features: { ...(d.settings.features ?? {}), mcp: true }, u: now };
@@ -258,6 +258,22 @@ describe('analytics and coaching through the connector', () => {
   });
 });
 
+describe('imports through the connector', () => {
+  it('import_events makes one proposal; importing again changes nothing', async () => {
+    const c = await connect();
+    const events = [{ externalId: 'm1:2026-10-12', title: 'Probability L9', date: '2026-10-12', start: '14:00', end: '15:30', joinUrl: 'https://iitj.zoom.us/j/1' }];
+    const r = await call(c, 'import_events', { events });
+    expect(r.isError).toBeFalsy();
+    const id = (r.structuredContent as { proposal: { id: string } }).proposal.id;
+    expect((await call(c, 'apply_proposal', { proposalId: id, scope: 'week' })).isError).toBeFalsy();
+    const again = await call(c, 'import_events', { events });
+    expect(again.content[0].text).toMatch(/Nothing to change: 1 already imported/);
+    const bad = await call(c, 'import_events', { events: [{ ...events[0], joinUrl: 'http://zoom.us/j/1' }] });
+    expect(bad.isError).toBe(true);
+    await c.close();
+  });
+});
+
 describe('connector switch', () => {
   it('the Labs flag stops tool calls without touching data', async () => {
     hub.db.mutate(ops.setFeature('mcp', false), 'test');
@@ -271,5 +287,17 @@ describe('connector switch', () => {
     await expect(raw('/healthz', { headers: { Host: `127.0.0.1:${MCP}` } })).rejects.toThrow();
     await hub.connector.enable();
     expect((await raw('/healthz', { headers: { Host: `127.0.0.1:${MCP}` } })).status).toBe(200);
+  });
+});
+
+describe('rate limit', () => {
+  it('allows 60 requests per minute per address, then refuses until the minute passes', async () => {
+    const { Guard } = await import('../server/mcp/auth');
+    const g = new Guard();
+    const t0 = 1_000_000;
+    for (let i = 0; i < 60; i++) expect(g.limited('1.2.3.4', t0 + i)).toBe(false);
+    expect(g.limited('1.2.3.4', t0 + 61)).toBe(true);
+    expect(g.limited('5.6.7.8', t0 + 61)).toBe(false);
+    expect(g.limited('1.2.3.4', t0 + 61_000 + 100)).toBe(false);
   });
 });

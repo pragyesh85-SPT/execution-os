@@ -10,7 +10,7 @@ import { BlockSheet } from './overlays/BlockSheet';
 import { ProposalSheet } from './overlays/ProposalSheet';
 import { PairLinkSheet } from './screens/DevicesV2';
 import { ConflictSheet } from './overlays/ConflictSheet';
-import { GuardNudge, LaterSheet, ProofSheet, Toasts, UrgeSheet } from './overlays/Sheets';
+import { GuardNudge, JoinWarning, LaterSheet, ProofSheet, Toasts, UrgeSheet } from './overlays/Sheets';
 import { Welcome } from './overlays/Welcome';
 import { WakeGate } from './overlays/WakeGate';
 import { Clock } from './screens/Clock';
@@ -199,6 +199,7 @@ export default function App() {
       <BlockSheet />
       <ProposalSheet />
       <PairLinkSheet />
+      <JoinWarning />
       <UrgeSheet />
       <LaterSheet />
       <GuardNudge />

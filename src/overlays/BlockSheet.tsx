@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react';
-import { Flag, Lock, Pin, PinOff } from 'lucide-react';
+import { Flag, Lock, Pin, PinOff, Video } from 'lucide-react';
+import { openJoin } from '../lib/join';
 import { useState } from 'react';
 import { CATEGORY_META } from '../core/defaults';
 import { missionFor, planFor } from '../core/engine';
@@ -79,6 +80,17 @@ function BlockInner({ date, blockId, onClose }: { date: string; blockId: string;
       }
     >
       <div className="stack lg">
+        {block.joinUrl && (
+          <div className="row between wrap">
+            <span className="faint" style={{ fontSize: 13 }}>
+              Class link · {block.joinUrl ? new URL(block.joinUrl).hostname : ''}
+              {block.reminderMin ? ` · reminder ${block.reminderMin} min before` : ''}
+            </span>
+            <button className="btn primary" onClick={() => openJoin(block.joinUrl!)}>
+              <Video size={16} /> Join
+            </button>
+          </div>
+        )}
         {anchor && (
           <div className="banner" data-tone="info" style={{ margin: 0 }}>
             <Lock size={18} />
