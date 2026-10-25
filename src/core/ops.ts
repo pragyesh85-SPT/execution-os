@@ -99,7 +99,10 @@ export const saveProof =
   (date: string, block: Pick<PlanBlock, 'id' | 'category'>, status: ProofStatus, note: string, links: string[], auto: string[]): Op =>
   (d, now) => {
     const id = `${date}:${block.id}`;
-    d.proofs[id] = { id, u: now, date, blockId: block.id, category: block.category, status, note, links, auto, at: now };
+    const plan = planFor(d, date);
+    const full = plan.blocks.find((b) => b.id === block.id);
+    const goalId = full ? missionFor(plan, full)?.goalId : undefined;
+    d.proofs[id] = { id, u: now, date, blockId: block.id, category: block.category, status, note, links, auto, at: now, ...(goalId ? { goalId } : {}) };
   };
 
 export interface SessionLog {

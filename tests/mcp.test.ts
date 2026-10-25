@@ -212,13 +212,31 @@ describe('tools', () => {
   it('serves resources and prompts', async () => {
     const c = await connect();
     const { resources } = await c.listResources();
-    expect(resources.map((r) => r.uri).sort()).toEqual(['eos://principles', 'eos://today', 'eos://week']);
+    expect(resources.map((r) => r.uri).sort()).toEqual(['eos://goals', 'eos://principles', 'eos://today', 'eos://week']);
     const { prompts } = await c.listPrompts();
     expect(prompts.map((p) => p.name)).toContain('rescue_my_day');
     const p = await c.getPrompt({ name: 'plan_my_day', arguments: {} });
     expect(JSON.stringify(p.messages)).toContain(DATE);
     const pb = await call(c, 'get_playbook', { name: 'shutdown' });
     expect(pb.content[0].text).toMatch(/shutdown/i);
+    await c.close();
+  });
+});
+
+describe('targets through the connector', () => {
+  it('creates a month → week tree and reads its progress', async () => {
+    const c = await connect();
+    const m = await call(c, 'upsert_goals', { goals: [{ level: 'month', period: '2026-10', title: 'Finish 4 modules', area: 'iit', metric: { kind: 'count', unit: 'modules' }, target: 4 }] });
+    expect(m.isError).toBeFalsy();
+    const monthId = (m.structuredContent as { ids: string[] }).ids[0];
+    const w = await call(c, 'upsert_goals', { goals: [{ level: 'week', period: '2026-10-07', parentId: monthId, title: '1 module', area: 'iit', metric: { kind: 'count', unit: 'modules' }, target: 1 }] });
+    expect(w.isError).toBeFalsy();
+    const g = await call(c, 'get_goals', { level: 'week', period: '2026-10-05' });
+    const goals = (g.structuredContent as { goals: { title: string; pace: string; period: string }[] }).goals;
+    expect(goals.map((x) => x.title)).toContain('1 module');
+    expect(goals[0].period).toBe('2026-10-05');
+    const bad = await call(c, 'upsert_goals', { goals: [{ level: 'month', period: '2026', title: 'x', metric: { kind: 'binary' } }] });
+    expect(bad.isError).toBe(true);
     await c.close();
   });
 });

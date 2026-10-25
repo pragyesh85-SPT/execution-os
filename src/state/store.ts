@@ -5,7 +5,7 @@ import type { AiConfig } from '../lib/ai';
 import type { Conflict } from '../core/sync';
 import type { PairPayload } from '../lib/pairing';
 
-export type Tab = 'now' | 'plan' | 'clock' | 'review' | 'rules' | 'settings';
+export type Tab = 'now' | 'plan' | 'calendar' | 'clock' | 'review' | 'rules' | 'settings' | 'more';
 
 /** Preferences that stay on this device only (never synced). */
 export interface LocalPrefs {
@@ -50,6 +50,7 @@ export interface Overlays {
   guard?: { source: string; title: string };
   urge: boolean;
   welcome: boolean;
+  welcomeAgain?: boolean; // reopened from Settings → About (shows even when already onboarded)
   later: boolean;
   conflicts: boolean;
   proposals?: boolean; // v2: proposal review sheet

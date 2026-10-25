@@ -1,6 +1,7 @@
 import { normalizeDoc } from '../core/merge';
 import * as ops from '../core/ops';
 import * as proposals from '../core/proposals';
+import * as goals from '../core/goals';
 import type { Op } from '../core/ops';
 import type { Doc } from '../core/types';
 import { logicalDate } from '../core/time';
@@ -48,6 +49,12 @@ export const applyWeekRescue = (...a: Parameters<typeof ops.applyWeekRescue>) =>
 export const pinBlock = (...a: Parameters<typeof ops.pinBlock>) => up(ops.pinBlock(...a));
 export const addDayBlock = (...a: Parameters<typeof ops.addDayBlock>) => up(ops.addDayBlock(...a));
 export const moveDayBlock = (...a: Parameters<typeof ops.moveDayBlock>) => up(ops.moveDayBlock(...a));
+
+// ---------- targets ----------
+export const upsertGoal = (...a: Parameters<typeof goals.upsertGoal>) => up(goals.upsertGoal(...a));
+export const checkinGoal = (...a: Parameters<typeof goals.checkinGoal>) => up(goals.checkinGoal(...a));
+export const setGoalStatus = (...a: Parameters<typeof goals.setGoalStatus>) => up(goals.setGoalStatus(...a));
+export const toggleMilestone = (...a: Parameters<typeof goals.toggleMilestone>) => up(goals.toggleMilestone(...a));
 
 // ---------- proposals ----------
 export const addProposal = (...a: Parameters<typeof proposals.addProposal>) => up(proposals.addProposal(...a));

@@ -268,6 +268,33 @@ export interface Proposal extends Synced {
   rejectReason?: string;
 }
 
+// ---------- v2: targets ----------
+
+export type GoalLevel = 'year' | 'month' | 'week' | 'day';
+
+export type GoalMetric =
+  | { kind: 'hours'; categories?: Category[] } // auto: credited minutes of linked work
+  | { kind: 'count'; unit: string } // e.g. "modules", "videos"
+  | { kind: 'binary' } // done / not done
+  | { kind: 'milestones'; items: { id: string; text: string; done: boolean }[] };
+
+export interface Goal extends Synced {
+  level: GoalLevel;
+  period: string; // '2026' | '2026-10' | week key (Monday, '2026-10-19') | '2026-10-24'
+  parentId?: string; // a month's parent is a year goal, etc.
+  title: string;
+  area: Area;
+  why?: string; // shown by the coach
+  metric: GoalMetric;
+  target: number; // hours | count | 1 | items.length
+  checkins?: { at: number; value: number; note?: string }[]; // manual progress for count/hours
+  status: 'active' | 'done' | 'dropped';
+  order: number;
+  createdAt: number;
+  source?: 'manual' | 'ai';
+  curve?: 'linear' | 'workdays'; // expected progress: every day, or Monday–Saturday only
+}
+
 export interface Settings extends Synced {
   name: string;
   dayStart: number; // clock minute the logical day starts (default = sleep end)
@@ -305,6 +332,7 @@ export interface Doc {
   later: Record<string, LaterItem>;
   reviews: Record<string, Review>;
   proposals: Record<string, Proposal>; // v2
+  goals: Record<string, Goal>; // v2
 }
 
 export type CollectionKey =
@@ -317,7 +345,8 @@ export type CollectionKey =
   | 'distractions'
   | 'later'
   | 'reviews'
-  | 'proposals';
+  | 'proposals'
+  | 'goals';
 
 export const COLLECTIONS: CollectionKey[] = [
   'days',
@@ -330,6 +359,7 @@ export const COLLECTIONS: CollectionKey[] = [
   'later',
   'reviews',
   'proposals',
+  'goals',
 ];
 
 export type DayState = 'on_track' | 'drifting' | 'rescue';
