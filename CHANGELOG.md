@@ -6,6 +6,14 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-25
+
+### Added
+- **Targets** (year → month → week → day): hours (from linked missions or chosen categories), counts, done/not done or milestones; check-ins; roll-up to parents; an honest pace (ahead / on track / behind / at risk) against where you should be by now; *Break down* splits a target evenly over what is left.
+- **Calendar tab** with the targets panel (bar = done, marker = expected, colour = pace) and Day / Week / Month views (✓ ◐ ✕, pins, rescue dots). Now shows "This week: X% of targets (expected Y%)". Missions and tasks get a *Counts toward* picker. Phones: Now, Plan, Calendar, Insights, More.
+- **Guided logging**: the proof sheet records percent done, what is left (becomes a "Continue: …" task) and blockers, and offers *Log with Claude*. Finished focus blocks without a log get an amber dot.
+- Connector: `get_goals`, `upsert_goals`, goals in `propose_week_plan`, `eos://goals`; `get_block_context` includes GitHub commits and PRs for the block.
+
 ## [1.3.0] - 2026-10-25
 
 ### Added
