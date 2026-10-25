@@ -988,7 +988,7 @@ function AboutSection() {
           <dd>Rules engine = authority. AI = strategist. Never carry lateness forward block by block.</dd>
         </dl>
         <div className="btn-row" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={() => openOverlay({ welcome: true })}>
+          <button className="btn" onClick={() => openOverlay({ welcome: true, welcomeAgain: true })}>
             Run the welcome wizard again
           </button>
         </div>

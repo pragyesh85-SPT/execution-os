@@ -27,8 +27,9 @@ const STEPS = [
 ] as const;
 
 export function Welcome() {
-  const show = useStore((s) => s.overlay.welcome);
   const onboarded = useStore((s) => s.doc.settings.onboarded);
+  // First run until the (synced) settings say onboarded; or on purpose from Settings → About.
+  const show = useStore((s) => s.overlay.welcome && (!onboarded || !!s.overlay.welcomeAgain));
   const settings = useStore((s) => s.doc.settings);
   const template = useStore((s) => s.doc.template);
   const sync = useStore((s) => s.sync);
@@ -86,7 +87,7 @@ export function Welcome() {
     });
     // Do not ring a wake alarm for a morning that already passed before the app was installed.
     if (!onboarded && wake && missedToday) bypassWake(today());
-    setOpen({ welcome: false });
+    setOpen({ welcome: false, welcomeAgain: false });
     if (thenTab) setTab(thenTab);
   };
 
@@ -96,7 +97,7 @@ export function Welcome() {
   return (
     <Sheet
       open={show}
-      onClose={() => setOpen({ welcome: false })}
+      onClose={() => setOpen({ welcome: false, welcomeAgain: false })}
       dismissable={onboarded}
       title="Execution OS"
       subtitle="Given what has actually happened today, what is the single best thing to do now?"

@@ -231,5 +231,7 @@ export function describeRec(col: RecCol, rec: Synced | null | undefined): string
       return `Distraction · ${String(r.source ?? '')}`;
     case 'proposals':
       return `Proposal · ${String(r.title ?? '')}`;
+    case 'goals':
+      return `Target · ${String(r.title ?? '')}`;
   }
 }

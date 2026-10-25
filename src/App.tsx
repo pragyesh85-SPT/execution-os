@@ -1,5 +1,5 @@
 import { MotionConfig, motion } from 'motion/react';
-import { ChartColumn, Clock3, Gauge, ListTodo, Settings2, Split } from 'lucide-react';
+import { CalendarDays, ChartColumn, Clock3, Ellipsis, Gauge, ListTodo, Settings2, Split } from 'lucide-react';
 import { useEffect } from 'react';
 import { blockAt, planFor } from './core/engine';
 import { logicalDate, offsetOf } from './core/time';
@@ -19,12 +19,17 @@ import { Review } from './screens/Review';
 import { Rules } from './screens/Rules';
 import { Settings } from './screens/Settings';
 import { Today } from './screens/Today';
+import { Calendar } from './screens/Calendar';
+import { More } from './screens/More';
+import { useFlag } from './state/hooks';
 import { useNow, useRuntime } from './state/runtime';
 import { useStore, type Tab } from './state/store';
 import { useMediaQuery } from './components/ui';
 import { platformLabel } from './lib/platform';
 
-const NAV: { id: Tab; label: string; icon: typeof Gauge; key: string }[] = [
+type NavItem = { id: Tab; label: string; icon: typeof Gauge; key: string };
+
+const V1_NAV: NavItem[] = [
   { id: 'now', label: 'Now', icon: Gauge, key: '1' },
   { id: 'plan', label: 'Plan', icon: ListTodo, key: '2' },
   { id: 'clock', label: 'Clock', icon: Clock3, key: '3' },
@@ -32,7 +37,18 @@ const NAV: { id: Tab; label: string; icon: typeof Gauge; key: string }[] = [
   { id: 'rules', label: 'Rules', icon: Split, key: '5' },
   { id: 'settings', label: 'Settings', icon: Settings2, key: '6' },
 ];
-const MOBILE_NAV = NAV.filter((n) => n.id !== 'rules');
+
+// v2 (flag "calendar"): the Calendar tab, Review renamed Insights, and a five-item bar on phones.
+const V2_NAV: NavItem[] = [
+  { id: 'now', label: 'Now', icon: Gauge, key: '1' },
+  { id: 'plan', label: 'Plan', icon: ListTodo, key: '2' },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays, key: '3' },
+  { id: 'review', label: 'Insights', icon: ChartColumn, key: '4' },
+  { id: 'clock', label: 'Clock', icon: Clock3, key: '5' },
+  { id: 'rules', label: 'Rules', icon: Split, key: '6' },
+  { id: 'settings', label: 'Settings', icon: Settings2, key: '7' },
+];
+const V2_MOBILE: NavItem[] = [...V2_NAV.slice(0, 4), { id: 'more', label: 'More', icon: Ellipsis, key: '' }];
 
 export function BrandMark() {
   return (
@@ -78,6 +94,10 @@ function Screen({ tab }: { tab: Tab }) {
       return <Rules />;
     case 'settings':
       return <Settings />;
+    case 'calendar':
+      return <Calendar />;
+    case 'more':
+      return <More />;
   }
 }
 
@@ -86,6 +106,12 @@ export default function App() {
   useTheme();
   const tab = useStore((s) => s.tab);
   const setTab = useStore((s) => s.setTab);
+  const calendarOn = useFlag('calendar');
+  const NAV = calendarOn ? V2_NAV : V1_NAV;
+  const MOBILE_NAV = calendarOn ? V2_MOBILE : V1_NAV.filter((n) => n.id !== 'rules');
+  useEffect(() => {
+    if (!calendarOn && (tab === 'calendar' || tab === 'more')) setTab('now');
+  }, [calendarOn, tab, setTab]);
   const open = useStore((s) => s.open);
   const name = useStore((s) => s.doc.settings.name);
   const motionPref = useStore((s) => s.local.motion);
@@ -109,7 +135,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [setTab, open]);
+  }, [setTab, open, NAV]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -155,7 +181,7 @@ export default function App() {
         <nav className="bottom-nav" aria-label="Main">
           {MOBILE_NAV.map((n) => {
             const Icon = n.icon;
-            const active = tab === n.id || (n.id === 'settings' && tab === 'rules');
+            const active = tab === n.id || (n.id === 'settings' && tab === 'rules') || (n.id === 'more' && ['clock', 'rules', 'settings'].includes(tab));
             return (
               <button key={n.id} aria-current={active ? 'page' : undefined} onClick={() => setTab(n.id)}>
                 {active && <motion.span layoutId="bottom-dot" className="nav-dot" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}

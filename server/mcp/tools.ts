@@ -7,6 +7,7 @@ import { OpError, type Op } from '../../src/core/ops';
 import { addProposal, applyProposal, isStale, makeProposal, makeRescueProposal, pendingProposals, rebaseProposal, rejectProposal, validateDayBlocks } from '../../src/core/proposals';
 import { buildRescue, buildWeekRescue, rescueOptions, STRATEGY_LABEL } from '../../src/core/rescue';
 import { slotRates, weekStats } from '../../src/core/stats';
+import { goalProgress, goalsFor, upsertGoal, type GoalInput } from '../../src/core/goals';
 import type { Category, Doc, Mission, Outcome, PlanBlock, ProposedDay, RescueStrategy } from '../../src/core/types';
 import { addDays, dayStartMs, MIN, offsetOf, weekKey } from '../../src/core/time';
 import type { HubDb } from '../db';
@@ -62,6 +63,8 @@ export const CORE_TOOLS = [
   'propose_rescue',
   'apply_proposal',
   'reject_proposal',
+  'get_goals',
+  'upsert_goals',
 ] as const;
 
 const MAX_RESULT = 50 * 1024;
@@ -84,6 +87,51 @@ const blockInput = strict({
   joinUrl: https().optional(),
 });
 const outcomeInput = strict({ text: z.string().min(1).max(200), area: z.enum(AREAS) });
+const LEVELS = ['year', 'month', 'week', 'day'] as const;
+const goalInput = strict({
+  id: z.string().max(80).optional(),
+  level: z.enum(LEVELS).optional(),
+  period: z.string().max(10).optional(),
+  parentId: z.string().max(80).optional(),
+  title: z.string().min(1).max(160).optional(),
+  area: z.enum(AREAS).optional(),
+  why: z.string().max(500).optional(),
+  metric: z
+    .union([
+      strict({ kind: z.literal('hours'), categories: z.array(z.enum(CATEGORIES)).max(9).optional() }),
+      strict({ kind: z.literal('count'), unit: z.string().min(1).max(40) }),
+      strict({ kind: z.literal('binary') }),
+      strict({ kind: z.literal('milestones'), items: z.array(strict({ id: z.string().max(40).optional(), text: z.string().min(1).max(200), done: z.boolean().optional() })).max(20) }),
+    ])
+    .optional(),
+  target: z.number().min(0).max(10000).optional(),
+  status: z.enum(['active', 'done', 'dropped']).optional(),
+});
+
+function goalView(doc: Doc, g: Doc['goals'][string], now: number) {
+  const p = goalProgress(doc, g, now);
+  return {
+    id: g.id,
+    level: g.level,
+    period: g.period,
+    ...(g.parentId ? { parentId: g.parentId } : {}),
+    title: g.title,
+    area: g.area,
+    ...(g.why ? { why: g.why } : {}),
+    metric: g.metric.kind === 'count' ? `count (${g.metric.unit})` : g.metric.kind,
+    ...(g.metric.kind === 'milestones' ? { milestones: g.metric.items.map((i) => ({ text: i.text, done: i.done })) } : {}),
+    target: p.target,
+    actual: p.actual,
+    percent: Math.round(Math.min(1, p.pct) * 100),
+    expectedPercent: Math.round(p.expectedPct * 100),
+    pace: p.pace,
+    status: g.status,
+  };
+}
+
+function writeGoals(tx: CallTx, goals: z.infer<typeof goalInput>[]): string[] {
+  return tx.write((d, now) => goals.map((g) => upsertGoal(g as GoalInput, 'ai')(d, now)));
+}
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -322,7 +370,7 @@ export function buildServer(ctx: ToolCtx): McpServer {
     return { summary: `Proposal ${id} ready: ${v.days[0].changes.length} change(s)${draft.warnings.length ? `, ${draft.warnings.length} warning(s)` : ''}. Show it to the user and ask "Apply for today?".`, data: { proposal: v } };
   });
 
-  reg('propose_week_plan', { title: 'Propose a week plan', kind: 'proposal', input: strict({ weekStart: date(), days: z.array(strict({ date: date(), blocks: z.array(blockInput).max(40), outcomes: z.array(outcomeInput).max(3).optional() })).min(1).max(7), tasks: z.array(strict({ title: z.string().min(1).max(200), area: z.enum(AREAS), priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(), deadline: date().optional(), estimate: z.number().int().min(5).max(600).optional() })).max(20).optional(), rationale: z.string().max(500).optional() }), description: 'Draft plans for up to 7 days of one week (same rules as propose_day_plan, per day), plus tasks to add. Creates one proposal; summarise each day in one line and ask "Apply for the week?".' }, (a: { weekStart: string; days: { date: string; blocks: z.infer<typeof blockInput>[]; outcomes?: z.infer<typeof outcomeInput>[] }[]; tasks?: { title: string; area: 'iit' | 'founder' | 'personal'; priority?: 1 | 2 | 3; deadline?: string; estimate?: number }[]; rationale?: string }, tx) => {
+  reg('propose_week_plan', { title: 'Propose a week plan', kind: 'proposal', input: strict({ weekStart: date(), goals: z.array(goalInput).max(10).optional(), days: z.array(strict({ date: date(), blocks: z.array(blockInput).max(40), outcomes: z.array(outcomeInput).max(3).optional() })).min(1).max(7), tasks: z.array(strict({ title: z.string().min(1).max(200), area: z.enum(AREAS), priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(), deadline: date().optional(), estimate: z.number().int().min(5).max(600).optional() })).max(20).optional(), rationale: z.string().max(500).optional() }), description: 'Draft plans for up to 7 days of one week (same rules as propose_day_plan, per day), plus tasks to add. "goals" creates or updates weekly targets right away (like upsert_goals). Creates one proposal; summarise each day in one line and ask "Apply for the week?".' }, (a: { weekStart: string; goals?: z.infer<typeof goalInput>[]; days: { date: string; blocks: z.infer<typeof blockInput>[]; outcomes?: z.infer<typeof outcomeInput>[] }[]; tasks?: { title: string; area: 'iit' | 'founder' | 'personal'; priority?: 1 | 2 | 3; deadline?: string; estimate?: number }[]; rationale?: string }, tx) => {
     const ws = weekKey(checkDate(a.weekStart));
     const days: ProposedDay[] = [];
     const errors: string[] = [];
@@ -336,9 +384,10 @@ export function buildServer(ctx: ToolCtx): McpServer {
       days.push(r.day);
     }
     if (errors.length) throw new InputError(`The plan was not created: ${errors.join(' ')}`);
+    const goalIds = a.goals?.length ? writeGoals(tx, a.goals.map((g) => ({ level: 'week' as const, period: ws, ...g }))) : [];
     const p = makeProposal(tx.doc, { kind: 'week_plan', source: 'mcp', client: ctx.client, title: `Week plan from ${ws}`, rationale: a.rationale, date: days[0].date, days, scopeAllowed: ['week', 'today'], tasksToAdd: a.tasks, tasksToAddToday: [], warnings }, tx.now);
     const id = tx.write(addProposal(p));
-    return { summary: `Proposal ${id} ready for ${days.length} day(s). Summarise each day and ask "Apply for the week?".`, data: { proposal: created(tx.doc, id) } };
+    return { summary: `Proposal ${id} ready for ${days.length} day(s)${goalIds.length ? `; ${goalIds.length} weekly target(s) saved` : ''}. Summarise each day and ask "Apply for the week?".`, data: { proposal: created(tx.doc, id), ...(goalIds.length ? { goalIds } : {}) } };
   });
 
   reg('propose_rescue', { title: 'Propose a rescue', kind: 'proposal', input: strict({ date: date().optional(), strategy: z.enum(['balanced', 'protect_study', 'ship', 'light']).optional(), scope: z.enum(['today', 'week']), hints: z.array(strict({ blockId: z.string().min(1).max(80), priority: z.number().int().min(1).max(5).optional(), missionTitle: z.string().min(1).max(200).optional() })).max(20).optional() }), description: 'Run Rescue (the engine decides all times; your hints may only change a block’s priority 1–5 or its mission title). Without a strategy it returns up to three alternatives (balanced, protect study, ship the deliverable, light day) as proposals, each with a headline saying what it protects and what it gives up. Show them, recommend one in a sentence, and ask "Apply for today or for the week?".' }, (a: { date?: string; strategy?: RescueStrategy; scope: 'today' | 'week'; hints?: { blockId: string; priority?: number; missionTitle?: string }[] }, tx) => {
@@ -373,6 +422,16 @@ export function buildServer(ctx: ToolCtx): McpServer {
     return { summary: `Rejected ${a.proposalId}.`, data: { rejected: a.proposalId } };
   });
 
+  reg('get_goals', { title: 'Targets', kind: 'read', input: strict({ level: z.enum(LEVELS).optional(), period: z.string().max(10).optional() }), description: 'Year → month → week → day targets with progress: actual vs target, percent, where the user should be by now (expectedPercent) and pace (ahead / on_track / behind / at_risk / done). Periods: year "2026", month "2026-10", week = its Monday "2026-10-19", day "2026-10-24".' }, (a: { level?: 'year' | 'month' | 'week' | 'day'; period?: string }, tx) => {
+    const list = goalsFor(tx.doc, a.level, a.level === 'week' && a.period ? weekKey(a.period) : a.period).slice(0, 60).map((g) => goalView(tx.doc, g, tx.now));
+    return { summary: `${list.length} target${list.length === 1 ? '' : 's'}.`, data: { goals: list } };
+  });
+
+  reg('upsert_goals', { title: 'Create or update targets', kind: 'write', input: strict({ goals: z.array(goalInput).min(1).max(20) }), description: 'Create targets (no id) or update them (with id). Never deletes — to drop one, set status "dropped". Keep it small: at most 5 yearly targets and 3 per goal per month. Measurable metrics only: hours (optionally of categories), count (with a unit), binary, or milestones. Link months to a year target and weeks to a month target with parentId.' }, (a: { goals: z.infer<typeof goalInput>[] }, tx) => {
+    const ids = writeGoals(tx, a.goals);
+    return { summary: `Saved ${ids.length} target${ids.length === 1 ? '' : 's'}.`, data: { ids, goals: ids.map((id) => goalView(tx.doc, tx.doc.goals[id], tx.now)) } };
+  });
+
   ctx.extraTools?.(reg, ctx);
 
   // ---------------- resources ----------------
@@ -386,6 +445,10 @@ export function buildServer(ctx: ToolCtx): McpServer {
   server.registerResource('week', 'eos://week', { title: 'This week', description: 'Seven day summaries of this week', mimeType: 'application/json' }, async (uri) => {
     const now = clock();
     return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(weekView(ctx.db.doc, weekKey(today(ctx.db.doc, now)), now)) }] };
+  });
+  server.registerResource('goals', 'eos://goals', { title: 'Targets', description: 'Active targets with progress', mimeType: 'application/json' }, async (uri) => {
+    const now = clock();
+    return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(goalsFor(ctx.db.doc).filter((g) => g.status === 'active').slice(0, 60).map((g) => goalView(ctx.db.doc, g, now))) }] };
   });
   ctx.extraResources?.(server, ctx);
 

@@ -15,6 +15,8 @@ import { successTone, unlockAudio } from '../lib/sound';
 import { SyncBadge } from '../components/SyncBadge';
 import { BlockRow, PinButton } from '../components/BlockRow';
 import { ProposalBanner } from '../overlays/ProposalSheet';
+import { weekPace } from '../core/goals';
+import { useFlag } from '../state/hooks';
 
 export function Today() {
   const t = useToday();
@@ -41,6 +43,7 @@ export function Today() {
       <div className="today">
         <div className="today-col">
           <ProposalBanner />
+          <WeekTargetsLine />
           <AnimatePresence initial={false}>
             {status.state !== 'on_track' && (
               <motion.div
@@ -185,6 +188,26 @@ export function Today() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------- this week's targets (one line) ----------------
+
+function WeekTargetsLine() {
+  const on = useFlag('goals');
+  const { doc, date, now } = useToday();
+  const setTab = useStore((s) => s.setTab);
+  const minute = Math.floor(now / 60_000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const p = useMemo(() => (on ? weekPace(doc, date, now) : null), [on, doc, date, minute]);
+  if (!p) return null;
+  const color = p.pace === 'at_risk' ? 'var(--bad)' : p.pace === 'behind' ? 'var(--warn)' : 'var(--ok)';
+  const label = { done: 'done', ahead: 'ahead', on_track: 'on track', behind: 'behind', at_risk: 'at risk' }[p.pace];
+  return (
+    <button className="week-line" onClick={() => setTab('calendar')}>
+      <span className="dot" style={{ background: color }} />
+      This week: {Math.round(p.pct * 100)}% of targets (expected {Math.round(p.expected * 100)}%) — <strong style={{ color }}>{label}</strong>
+    </button>
   );
 }
 

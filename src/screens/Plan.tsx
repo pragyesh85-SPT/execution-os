@@ -13,6 +13,7 @@ import { useStore } from '../state/store';
 import { aiComplete } from '../lib/ai';
 import { useNow } from '../state/runtime';
 import { useFlag } from '../state/hooks';
+import { linkableGoals } from '../core/goals';
 import { BlockRow } from '../components/BlockRow';
 
 export function Plan() {
@@ -351,12 +352,15 @@ function MissionEditor({ date, block, mission }: { date: string; block: PlanBloc
     .sort((a, b) => taskValue(b, date) - taskValue(a, date))
     .slice(0, 12);
 
-  const commit = (nextTitle = title, nextSteps = steps) => {
+  const goalsOn = useFlag('goals');
+  const goalChoices = goalsOn ? linkableGoals(doc, date) : [];
+  const commit = (nextTitle = title, nextSteps = steps, goalId = mission?.goalId) => {
     if (!nextTitle.trim() && !nextSteps.length) {
       if (mission) setMission(date, target, null);
       return;
     }
-    setMission(date, target, { ...(mission ?? {}), title: nextTitle.trim(), steps: nextSteps, source: mission?.source ?? 'manual' });
+    const { goalId: _old, ...rest } = mission ?? ({} as Mission);
+    setMission(date, target, { ...rest, title: nextTitle.trim(), steps: nextSteps, source: mission?.source ?? 'manual', ...(goalId ? { goalId } : {}) });
   };
 
   return (
@@ -398,6 +402,19 @@ function MissionEditor({ date, block, mission }: { date: string; block: PlanBloc
           </select>
         )}
       </div>
+      {goalChoices.length > 0 && (
+        <label className="row" style={{ gap: 8, fontSize: 13 }}>
+          <span className="faint">Counts toward</span>
+          <select className="select" style={{ maxWidth: 260 }} value={mission?.goalId ?? ''} disabled={!title.trim()} onChange={(e) => commit(title, steps, e.target.value || undefined)}>
+            <option value="">— no target —</option>
+            {goalChoices.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.title} ({g.level})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <AnimatePresence initial={false}>
         {steps.map((s) => (
           <motion.div key={s.id} className="step-row" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: EASE }}>
@@ -696,7 +713,9 @@ function TaskInbox({ date }: { date: string }) {
   const [deadline, setDeadline] = useState('');
   const [estimate, setEstimate] = useState('');
   const [priority, setPriority] = useState<1 | 2 | 3>(2);
+  const [goalId, setGoalId] = useState('');
   const [showDone, setShowDone] = useState(false);
+  const goalChoices = useFlag('goals') ? linkableGoals(doc, date) : [];
 
   const tasks = Object.values(doc.tasks)
     .filter((t) => !t.del && (filter === 'all' || t.area === filter) && (showDone || !t.done))
@@ -723,6 +742,7 @@ function TaskInbox({ date }: { date: string }) {
             deadline: deadline || undefined,
             estimate: estimate ? Number(estimate) : undefined,
             priority,
+            ...(goalId ? { goalId } : {}),
           });
           setTitle('');
           setEstimate('');
@@ -756,6 +776,18 @@ function TaskInbox({ date }: { date: string }) {
             </select>
           </Field>
         </div>
+        {goalChoices.length > 0 && (
+          <Field label="Counts toward">
+            <select className="select" value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+              <option value="">— no target —</option>
+              {goalChoices.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title} ({g.level})
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <button className="btn ink" type="submit" disabled={!title.trim()}>
           <Plus size={16} /> Add task
         </button>

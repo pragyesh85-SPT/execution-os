@@ -2020,3 +2020,185 @@ html[data-motion='reduced'] {
   border-color: var(--ink);
   color: var(--bg);
 }
+
+/* ---------- v2: calendar & targets ---------- */
+
+.target-row {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.target-row:hover {
+  background: var(--surface-2);
+}
+.target-row .t {
+  font-weight: 500;
+  font-size: 14px;
+}
+.bullet {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  overflow: visible;
+}
+.bullet i {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  transform-origin: left center;
+}
+.bullet b {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 16px;
+  margin-left: -1px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+.week-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(44px, 1fr));
+  gap: 4px;
+  overflow-x: auto;
+}
+.week-col[data-today='true'] .week-head {
+  color: var(--accent);
+}
+.week-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-2);
+  padding-bottom: 4px;
+}
+.week-body {
+  position: relative;
+  height: var(--h);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.week-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: #fff;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+.week-block[data-pinned='true'] {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.week-block span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.week-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.month-dow {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-align: center;
+}
+.month-cell {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.month-cell small {
+  font-size: 10px;
+  color: var(--ink-2);
+}
+.month-cell[data-today='true'] {
+  border-color: var(--accent);
+}
+.month-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.more-item:first-child {
+  border-top: 0;
+}
+.more-item .grow {
+  display: grid;
+  gap: 2px;
+}
+.more-item .faint {
+  font-size: 13px;
+}
