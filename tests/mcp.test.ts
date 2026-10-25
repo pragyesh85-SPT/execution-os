@@ -274,6 +274,34 @@ describe('imports through the connector', () => {
   });
 });
 
+describe('cards in chat (MCP Apps)', () => {
+  it('with the flag on, proposal tools declare the card and carry its data; off, the metadata is gone', async () => {
+    hub.db.mutate(ops.setFeature('mcpApps', true), 'test');
+    const c = await connect();
+    const { tools } = await c.listTools();
+    for (const name of ['propose_rescue', 'propose_day_plan', 'propose_week_plan', 'import_events']) {
+      const meta = tools.find((t) => t.name === name)?._meta as { ui?: { resourceUri?: string } } | undefined;
+      expect(meta?.ui?.resourceUri, name).toBe('ui://execution-os/proposal');
+    }
+    expect(tools.find((t) => t.name === 'get_day')?._meta).toBeUndefined();
+    const res = await c.readResource({ uri: 'ui://execution-os/proposal' });
+    expect(res.contents[0].mimeType).toBe('text/html;profile=mcp-app');
+    const r = await call(c, 'propose_rescue', { scope: 'today' });
+    const cardData = (r.structuredContent as { card: { proposals: { id: string; days: { before: unknown[]; after: unknown[] }[] }[] } }).card;
+    expect(cardData.proposals.length).toBeGreaterThan(0);
+    expect(cardData.proposals[0].days[0].after.length).toBeGreaterThan(0);
+    expect(r.content[0].text).not.toContain('"card"'); // the plain-text fallback is unchanged
+    await c.close();
+    hub.db.mutate(ops.setFeature('mcpApps', false), 'test');
+    const c2 = await connect();
+    const t2 = await c2.listTools();
+    expect(t2.tools.find((t) => t.name === 'propose_rescue')?._meta).toBeUndefined();
+    const r2 = await call(c2, 'propose_rescue', { scope: 'today' });
+    expect(r2.structuredContent).not.toHaveProperty('card');
+    await c2.close();
+  });
+});
+
 describe('connector switch', () => {
   it('the Labs flag stops tool calls without touching data', async () => {
     hub.db.mutate(ops.setFeature('mcp', false), 'test');
