@@ -8,7 +8,7 @@ import type { Settings as S } from '../core/types';
 import { fmtDur } from '../core/time';
 import { EASE, Field, Segmented, Sheet, Toggle } from '../components/ui';
 import { clearHistory, exportJson, importJson, resetEverything, setFeature, updateSettings } from '../state/actions';
-import { syncNow, testHub } from '../state/sync';
+import { hubRequest, syncNow, testHub } from '../state/sync';
 import { useStore, type LocalPrefs } from '../state/store';
 import { PROVIDERS, testAi, type Provider } from '../lib/ai';
 import { exactAlarmStatus, notificationPermission, notify, openExactAlarmSettings, requestNotifications } from '../lib/notify';
@@ -31,6 +31,7 @@ const SECTIONS = [
   ['integrations', 'Integrations'],
   ['rules', 'IF → THEN rules'],
   ['data', 'Data'],
+  ['health', 'Health'],
   ['labs', 'Labs (advanced)'],
   ['about', 'About'],
 ] as const;
@@ -82,6 +83,7 @@ export function Settings() {
           {section === 'rules' && <Rules />}
           {section === 'data' && <DataSection />}
           {section === 'labs' && <LabsSection />}
+          {section === 'health' && <HealthSection />}
           {section === 'about' && <AboutSection />}
         </motion.div>
       </div>
@@ -910,9 +912,70 @@ function LabsSection() {
   );
 }
 
+// ---------------- health ----------------
+
+interface HealthCheck {
+  id: string;
+  label: string;
+  status: 'ok' | 'warn' | 'fail' | 'skip';
+  detail: string;
+  fix?: string;
+}
+
+function HealthSection() {
+  const [checks, setChecks] = useState<HealthCheck[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const res = await hubRequest('health');
+      const j = (await res.json()) as { checks?: HealthCheck[]; error?: string };
+      if (!j.checks) throw new Error(j.error ?? 'No answer from the hub.');
+      setChecks(j.checks);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    void run();
+  }, []);
+  const color = { ok: 'var(--ok)', warn: 'var(--warn)', fail: 'var(--bad)', skip: 'var(--ink-3)' } as const;
+  const label = { ok: 'OK', warn: 'Check', fail: 'Problem', skip: '—' } as const;
+  return (
+    <section className="card">
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <p className="muted" style={{ margin: 0 }}>
+          Health of this PC hub. The same checks run with <code>node build/server.cjs doctor</code>.
+        </p>
+        <button className="btn sm" disabled={busy} onClick={() => void run()}>
+          <RefreshCw size={14} /> {busy ? 'Checking…' : 'Run again'}
+        </button>
+      </div>
+      {error && <p className="muted">Health checks run on the PC (Windows app or http://localhost:4747). {error}</p>}
+      {checks?.map((c) => (
+        <div key={c.id} className="setting">
+          <div>
+            <div className="name">{c.label}</div>
+            <div className="desc">{c.detail}</div>
+            {c.fix && <div className="desc" style={{ color: 'var(--ink)' }}>→ {c.fix}</div>}
+          </div>
+          <span className="chip" style={{ color: color[c.status] }}>
+            {label[c.status]}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 // ---------------- about ----------------
 
 function AboutSection() {
+  const openOverlay = useStore((s) => s.open);
   return (
     <div className="stack lg">
       <section className="card">
@@ -924,6 +987,11 @@ function AboutSection() {
           <dt>Principle</dt>
           <dd>Rules engine = authority. AI = strategist. Never carry lateness forward block by block.</dd>
         </dl>
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button className="btn" onClick={() => openOverlay({ welcome: true })}>
+            Run the welcome wizard again
+          </button>
+        </div>
       </section>
       <section className="card">
         <h2 className="card-title">Built on this research</h2>

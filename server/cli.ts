@@ -4,6 +4,8 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:f
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileStamp } from './db';
+import QRCode from 'qrcode';
+import { healthy, runDoctor } from './doctor';
 import { startHub } from './hub';
 
 // Command line for the hub: `node build/server.cjs <command>`
@@ -11,6 +13,9 @@ import { startHub } from './hub';
 //   backup            write a labelled copy of the database into the backups folder
 //   restore <file>    replace the database with a backup (refuses while the hub is running)
 //   info              database path, record count, schema version, backups
+//   pair              show a one-scan pairing QR in the terminal (hub must be running)
+//   doctor            health checks with one concrete fix each (exit code 0 when healthy)
+//   connector on|off|rotate [client]|status   manage the AI connector of the running hub
 //   version           print the app version
 // These are the owner's emergency tools — they work even when the app will not start.
 
@@ -71,7 +76,7 @@ function serve() {
       console.log(`  Pairing PIN:    ${hub.pin}`);
       console.log(`  Database:       ${dbFile}`);
       console.log('');
-      console.log('  Press Ctrl+C to stop.');
+      void printPairQr().finally(() => console.log('  Press Ctrl+C to stop.'));
       const stop = () => hub.close().then(() => process.exit(0));
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
@@ -85,6 +90,70 @@ function serve() {
       }
       process.exit(1);
     });
+}
+
+async function api<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`http://127.0.0.1:${port}/api/${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(60_000),
+  });
+  return (await res.json()) as T;
+}
+
+async function printPairQr() {
+  try {
+    const r = await api<{ qrText: string; hubName: string }>('pair/start', {});
+    console.log(`  Scan with your phone to pair it with ${r.hubName} (valid 5 minutes, works once):`);
+    console.log(await QRCode.toString(r.qrText, { type: 'terminal', small: true }));
+  } catch {
+    /* pairing QR is a convenience */
+  }
+}
+
+async function pair() {
+  if (!(await hubRunning())) return fail('Execution OS is not running. Start it first (Windows app or npm run serve).');
+  await printPairQr();
+}
+
+async function doctor() {
+  const running = await hubRunning();
+  // The running hub knows more (connector, devices); an older hub without /api/health gets the local checks.
+  const fromHub = running ? await api<{ checks?: Awaited<ReturnType<typeof runDoctor>> }>('health').catch(() => null) : null;
+  const checks = fromHub?.checks ?? (await runDoctor({ dbFile, port }));
+  const icon = { ok: 'OK  ', warn: 'WARN', fail: 'FAIL', skip: '--  ' } as const;
+  console.log(`Execution OS ${__APP_VERSION__} — health check\n`);
+  for (const c of checks) {
+    console.log(`  [${icon[c.status]}] ${c.label}: ${c.detail}`);
+    if (c.fix) console.log(`         → ${c.fix}`);
+  }
+  const ok = healthy(checks);
+  console.log(ok ? '\nHealthy.' : '\nSomething needs attention (see FAIL above).');
+  process.exitCode = ok ? 0 : 1;
+}
+
+async function connector(action: string | undefined, client = 'claude') {
+  if (!(await hubRunning())) return fail('Execution OS is not running. Start it first.');
+  type St = { enabled: boolean; listening: boolean; localUrl: string; publicUrl: string | null; clients: { client: string }[] };
+  const show = (s: St) =>
+    console.log(`AI connector: ${s.enabled ? 'on' : 'off'}${s.listening ? ` · ${s.localUrl}` : ''}${s.publicUrl ? ` · public ${s.publicUrl}` : ''}${s.clients.length ? ` · tokens: ${s.clients.map((c) => c.client).join(', ')}` : ''}`);
+  switch (action) {
+    case 'on':
+      return show(await api<St>('connector', { action: 'enable' }));
+    case 'off':
+      return show(await api<St>('connector', { action: 'disable' }));
+    case 'rotate': {
+      const r = await api<{ token: string; client: string; status: St }>('connector', { action: 'rotate', client });
+      console.log(`New token for ${r.client} (shown once — paste it into the client now):\n\n  ${r.token}\n`);
+      return show(r.status);
+    }
+    case 'status':
+    case undefined:
+      return show(await api<St>('connector?check=1'));
+    default:
+      fail('Usage: node build/server.cjs connector on|off|rotate [client]|status');
+  }
 }
 
 function backup() {
@@ -150,11 +219,20 @@ switch (command) {
   case 'info':
     void info();
     break;
+  case 'pair':
+    void pair();
+    break;
+  case 'doctor':
+    void doctor();
+    break;
+  case 'connector':
+    void connector(args[0], args[1]);
+    break;
   case 'version':
   case '--version':
   case '-v':
     console.log(__APP_VERSION__);
     break;
   default:
-    fail(`Unknown command "${command}". Commands: serve, backup, restore <file>, info, version`);
+    fail(`Unknown command "${command}". Commands: serve, backup, restore <file>, info, pair, doctor, connector, version`);
 }

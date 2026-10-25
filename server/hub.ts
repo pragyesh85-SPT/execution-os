@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { focusState, wakeDue } from '../src/core/engine';
 import * as ops from '../src/core/ops';
@@ -9,6 +8,8 @@ import type { Change } from '../src/core/sync';
 import type { Doc } from '../src/core/types';
 import { logicalDate } from '../src/core/time';
 import { HubDb } from './db';
+import { isTailscaleIp, lanAddresses } from './lan';
+import { runDoctor } from './doctor';
 import { listAudit, undoAudit, lastSuccess } from './mcp/audit';
 import { createConnector, type Connector } from './mcp/connector';
 import type { GatewayOptions } from './mcp/gateway';
@@ -104,19 +105,7 @@ function readBody(req: IncomingMessage, limit = 16 * 1024 * 1024): Promise<strin
   });
 }
 
-/** Tailscale hands out addresses in 100.64.0.0/10. */
-const isTailscale = (ip: string) => {
-  const [a, b] = ip.split('.').map(Number);
-  return a === 100 && b >= 64 && b <= 127;
-};
-
-export function lanAddresses(): string[] {
-  const out: string[] = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const ni of list ?? []) if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address);
-  }
-  return out;
-}
+export { lanAddresses };
 
 export function startHub(opts: HubOptions): Promise<Hub> {
   const log = opts.log ?? (() => {});
@@ -160,7 +149,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
   const hubUrls = () => orderUrls([...endpoints().map((e) => e.url), ...(serveUrl ? [serveUrl] : [])]);
 
   const endpoints = (): Endpoint[] =>
-    lanAddresses().map((ip) => ({ url: `http://${ip}:${opts.port}`, kind: isTailscale(ip) ? 'tailscale' : 'wifi' }));
+    lanAddresses().map((ip) => ({ url: `http://${ip}:${opts.port}`, kind: isTailscaleIp(ip) ? 'tailscale' : 'wifi' }));
 
   const distRoot = resolve(opts.distDir);
   const serveStatic = (req: IncomingMessage, res: ServerResponse, pathname: string) => {
@@ -363,6 +352,11 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         }
       }
 
+      if (path === '/api/health' && req.method === 'GET') {
+        if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
+        const checks = await runDoctor({ dbFile: db.file, port: opts.port, tunnel, connector: connector.status(), devices: devices.list() });
+        return send(res, 200, { checks, at: Date.now() });
+      }
       if (path === '/api/info' && req.method === 'GET') {
         if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
         return send(res, 200, {

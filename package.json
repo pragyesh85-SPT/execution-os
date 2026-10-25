@@ -20,7 +20,9 @@
     "dist:exe": "npm run build && electron-builder --config electron-builder.config.cjs --win portable nsis --x64",
     "android:sync": "npm run build:web && npx cap sync android",
     "dist:apk": "npm run android:sync && node scripts/build-apk.mjs",
-    "version:bump": "node scripts/bump-version.mjs"
+    "version:bump": "node scripts/bump-version.mjs",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node build/server.cjs doctor"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
