@@ -6,6 +6,15 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-25
+
+### Added
+- **Insights**: Analytics over 7 / 28 / 90 days — verified deep work, on-time starts, mission completion, drift heatmap (hour × weekday), rescues and their reasons, plan accuracy, anchors kept, entertainment vs budget, focus quality, rolling 7-day trends. No streaks.
+- **Coach**: a weekly grade A–F computed by the engine (`score = 100 × (0.30 S + 0.35 C + 0.20 A + 0.15 D)`, not below 5 finished blocks), a behaviour profile with its numbers, three facts, the biggest leak and one IF → THEN change with one-tap *Add rule*. Coach tone: gentle / direct / drill (wording only).
+- **Class imports**: `import_events` turns classes (e.g. found in email by Claude) into pinned blocks with a Join link and a reminder; re-imports never duplicate. Join opens only allow-listed https meeting sites; others show their real domain first (Settings → Integrations).
+- Reminders with a *Join* action on Android; reminder notification and Join button on Windows and the web.
+- Connector: `get_analytics` returns the engine's verdict; `post_coaching_note` (AI adds wording only); `import_events`.
+
 ## [1.4.0] - 2026-10-25
 
 ### Added

@@ -27,9 +27,9 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   qrPairing: true, // shipped in v1.3.0
   goals: true, // shipped in v1.4.0
   calendar: true, // shipped in v1.4.0
-  analytics: false,
-  coaching: false,
-  imports: false,
+  analytics: true, // shipped in v1.5.0
+  coaching: true, // shipped in v1.5.0
+  imports: true, // shipped in v1.5.0
   mcpApps: false,
   quickOverride: false,
 };
