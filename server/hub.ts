@@ -34,6 +34,7 @@ export interface HubOptions {
   log?: (msg: string) => void;
   mcpPort?: number; // AI connector gateway (default 4748, loopback only)
   pairTtlMs?: number; // pairing token lifetime (default 5 minutes)
+  oauthAccessTtlMs?: number; // OAuth access token lifetime (default 1 hour; tests shorten it)
   tunnel?: Tunnel; // Tailscale control (tests inject a fake)
   gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'>;
 }
@@ -357,6 +358,23 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         const checks = await runDoctor({ dbFile: db.file, port: opts.port, tunnel, connector: connector.status(), devices: devices.list() });
         return send(res, 200, { checks, at: Date.now() });
       }
+      // ---------- OAuth sign-ins of AI apps (this PC only) ----------
+      if (path === '/api/oauth') {
+        if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
+        const o = connector.oauth;
+        if (req.method === 'POST') {
+          const body = JSON.parse(await readBody(req, 4096)) as { action?: string; id?: string; clientId?: string };
+          if (body.action === 'approve' || body.action === 'deny') {
+            const p = o.decide(String(body.id ?? ''), body.action === 'approve');
+            if (!p) return send(res, 404, { error: 'That sign-in request expired.' });
+            log(`AI app sign-in ${body.action === 'approve' ? 'approved' : 'denied'}: ${p.clientName}`);
+          } else if (body.action === 'revoke') o.revokeClient(String(body.clientId ?? ''));
+          else if (body.action === 'enable' || body.action === 'disable') o.setEnabled(body.action === 'enable');
+          else return send(res, 400, { error: 'Unknown action' });
+        }
+        return send(res, 200, { enabled: o.enabled, pending: o.pendingList().map((p) => ({ id: p.id, clientName: p.clientName, at: p.at })), clients: o.clients() });
+      }
+
       if (path === '/api/info' && req.method === 'GET') {
         if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
         return send(res, 200, {
@@ -381,7 +399,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
   });
 
-  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: opts.gateway });
+  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: opts.gateway, oauthAccessTtlMs: opts.oauthAccessTtlMs });
 
   return new Promise((resolveHub, reject) => {
     server.once('error', (e) => {
