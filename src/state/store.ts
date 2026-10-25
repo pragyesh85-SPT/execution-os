@@ -45,6 +45,7 @@ export interface Overlays {
   welcome: boolean;
   later: boolean;
   conflicts: boolean;
+  proposals?: boolean; // v2: proposal review sheet
 }
 
 interface Store {

@@ -4,6 +4,7 @@ import { networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { focusState, wakeDue } from '../src/core/engine';
 import * as ops from '../src/core/ops';
+import { expireProposals, hasExpired } from '../src/core/proposals';
 import type { Change } from '../src/core/sync';
 import type { Doc } from '../src/core/types';
 import { logicalDate } from '../src/core/time';
@@ -115,6 +116,14 @@ export function startHub(opts: HubOptions): Promise<Hub> {
       /* try again next hour */
     }
   }, 60 * 60 * 1000);
+  // Pending proposals that passed their expiry become "expired" (idempotent, writes only changes).
+  const expireTimer = setInterval(() => {
+    try {
+      if (hasExpired(db.doc, Date.now())) db.mutate(expireProposals(), 'hub');
+    } catch (e) {
+      log(`proposal expiry failed: ${(e as Error).message}`);
+    }
+  }, 10 * 60 * 1000);
 
   const endpoints = (): Endpoint[] =>
     lanAddresses().map((ip) => ({ url: `http://${ip}:${opts.port}`, kind: isTailscale(ip) ? 'tailscale' : 'wifi' }));
@@ -236,6 +245,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
   return new Promise((resolveHub, reject) => {
     server.once('error', (e) => {
       clearInterval(backupTimer);
+      clearInterval(expireTimer);
       db.close();
       reject(e);
     });
@@ -251,6 +261,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         close: () =>
           new Promise<void>((done) => {
             clearInterval(backupTimer);
+            clearInterval(expireTimer);
             server.close(() => {
               db.close();
               done();

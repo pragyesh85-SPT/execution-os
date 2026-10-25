@@ -6,7 +6,10 @@ import { clockOf, dayStartMs, fmtClock, logicalDate, MIN, offsetOf } from '../co
 import { notify, scheduleAhead } from '../lib/notify';
 import { isAndroid, native } from '../lib/platform';
 import { chime } from '../lib/sound';
-import { stopSession } from './actions';
+import { isOn } from '../core/features';
+import { hasExpired, pendingProposals } from '../core/proposals';
+import { isProposalSeen, markProposalSeen } from '../lib/seen';
+import { expireProposals, stopSession } from './actions';
 import { useStore } from './store';
 
 // The heartbeat of the app: once per second it advances the clock, notices block changes,
@@ -106,6 +109,7 @@ export function useRuntime() {
     let lastKey = '';
     let lastBlock: PlanBlock | undefined;
     let lastDate = '';
+    let lastExpiry = 0;
 
     const tick = () => {
       const now = Date.now();
@@ -143,6 +147,12 @@ export function useRuntime() {
 
       runRules(doc, now, date, block);
 
+      // Proposals: expire overdue ones (once a minute is plenty; the op is idempotent).
+      if (isOn(doc.settings, 'proposals') && now - lastExpiry > 60_000) {
+        lastExpiry = now;
+        if (hasExpired(doc, now)) expireProposals();
+      }
+
       // Auto-open Rescue when configured.
       if (doc.settings.autoRescue && doc.settings.onboarded) {
         const s = dayStatus(doc, now);
@@ -161,8 +171,18 @@ export function useRuntime() {
 
     // Android: keep OS notifications in step with the plan.
     scheduleAhead(useStore.getState().doc);
+    // A proposal that arrives (from another device or the AI connector) is announced once.
+    for (const p of pendingProposals(useStore.getState().doc)) markProposalSeen(p.id);
     const unsub = useStore.subscribe((s, prev) => {
-      if (s.doc !== prev.doc) scheduleAhead(s.doc);
+      if (s.doc === prev.doc) return;
+      scheduleAhead(s.doc);
+      if (!isOn(s.doc.settings, 'proposals')) return;
+      for (const p of pendingProposals(s.doc)) {
+        if (isProposalSeen(p.id)) continue;
+        markProposalSeen(p.id);
+        void notify('Plan proposal', p.title);
+        useStore.getState().toast(`Plan proposal: ${p.title}`, 'info', { label: 'Review', run: () => useStore.getState().open({ proposals: true }) });
+      }
     });
 
     return () => {
@@ -173,3 +193,4 @@ export function useRuntime() {
     };
   }, []);
 }
+

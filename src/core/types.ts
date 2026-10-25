@@ -195,6 +195,64 @@ export interface Review extends Synced {
   at: number;
 }
 
+// ---------- v2: proposals ----------
+
+export type ProposalKind = 'rescue' | 'day_plan' | 'week_plan' | 'import' | 'override';
+export type ProposalStatus = 'pending' | 'applied' | 'rejected' | 'expired' | 'superseded';
+
+export interface ProposedLine {
+  kind: 'kept' | 'moved' | 'shortened' | 'split' | 'dropped' | 'added';
+  blockId: string;
+  title: string;
+  from?: [number, number];
+  to?: [number, number];
+  reason: string;
+}
+
+export interface ProposedDay {
+  date: string;
+  blocks: PlanBlock[]; // complete, validated block list for the day
+  missions?: Record<string, Mission>; // keyed by block id in `blocks`
+  outcomes?: Outcome[]; // max 3
+  lines: ProposedLine[]; // human-readable diff vs the base
+}
+
+export interface ProposalTask {
+  title: string;
+  area: Area;
+  priority?: 1 | 2 | 3;
+  deadline?: string;
+  estimate?: number;
+  notes?: string;
+  carried?: boolean;
+  goalId?: string;
+}
+
+export interface Proposal extends Synced {
+  kind: ProposalKind;
+  source: 'engine' | 'mcp' | 'automation';
+  client?: string; // 'claude', 'chatgpt', 'claude-code' …
+  title: string;
+  rationale?: string;
+  createdAt: number;
+  expiresAt: number;
+  status: ProposalStatus;
+  scopeAllowed: ('today' | 'week')[];
+  date: string; // the first day ("today" for scope purposes)
+  days: ProposedDay[];
+  baseRevs: Record<string, number>; // date -> day record r at creation (0 = not materialised)
+  baseU?: Record<string, number>; // date -> day record u at creation (catches edits not yet synced)
+  tasksToAdd?: ProposalTask[]; // added when applied for the week (or for any scope if tasksToAddToday is absent)
+  tasksToAddToday?: ProposalTask[]; // added instead when applied for today only
+  rescue?: { strategy?: RescueStrategy; reason?: RescueReason; summary: string[] };
+  warnings?: string[];
+  supersedes?: string;
+  appliedAt?: number;
+  appliedScope?: 'today' | 'week';
+  decidedBy?: string;
+  rejectReason?: string;
+}
+
 export interface Settings extends Synced {
   name: string;
   dayStart: number; // clock minute the logical day starts (default = sleep end)
@@ -231,6 +289,7 @@ export interface Doc {
   distractions: Record<string, Distraction>;
   later: Record<string, LaterItem>;
   reviews: Record<string, Review>;
+  proposals: Record<string, Proposal>; // v2
 }
 
 export type CollectionKey =
@@ -242,7 +301,8 @@ export type CollectionKey =
   | 'rules'
   | 'distractions'
   | 'later'
-  | 'reviews';
+  | 'reviews'
+  | 'proposals';
 
 export const COLLECTIONS: CollectionKey[] = [
   'days',
@@ -254,6 +314,7 @@ export const COLLECTIONS: CollectionKey[] = [
   'distractions',
   'later',
   'reviews',
+  'proposals',
 ];
 
 export type DayState = 'on_track' | 'drifting' | 'rescue';

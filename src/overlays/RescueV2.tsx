@@ -5,26 +5,34 @@ import { CATEGORY_META } from '../core/defaults';
 import { dayStatus, liveBlocks, wakeDue } from '../core/engine';
 import { buildWeekRescue, rescueOptions, STRATEGY_LABEL, type RescueChangeLine, type RescueResult, type WeekRescueResult } from '../core/rescue';
 import { slotRates } from '../core/stats';
-import type { PlanBlock, RescueReason, RescueStrategy } from '../core/types';
+import type { Doc, PlanBlock, RescueReason, RescueStrategy } from '../core/types';
 import { clockOf, fmtClock, fmtDur, shortDate } from '../core/time';
 import { EASE, Sheet, catColor } from '../components/ui';
-import { applyRescue, applyWeekRescue, attempt, dismissRescue } from '../state/actions';
-import { useToday } from '../state/hooks';
+import { addProposal, applyProposal, applyRescue, applyWeekRescue, attempt, dismissRescue } from '../state/actions';
+import { useFlag, useToday } from '../state/hooks';
+import { makeRescueProposal } from '../core/proposals';
+import { markProposalSeen } from '../lib/seen';
 import { useStore } from '../state/store';
 import { successTone } from '../lib/sound';
 
 // Rescue v2: up to three strategies, a before/after timeline with fixed blocks greyed,
 // one sentence for every change, and apply for today or for the rest of the week.
 
-export interface RescueApply {
-  today: (date: string, r: RescueResult, reason: RescueReason) => boolean;
-  week: (w: WeekRescueResult, reason: RescueReason) => boolean;
-}
+type ApplyKind = 'today' | 'week' | 'save';
 
-const directApply: RescueApply = {
-  today: (date, r, reason) => attempt(() => applyRescue(date, r, { reason })),
-  week: (w, reason) => attempt(() => applyWeekRescue(w, { reason })),
-};
+/** Apply directly (flag "proposals" off), or through a proposal so it is validated, recorded and rebased if stale. */
+function applyRescueChoice(kind: ApplyKind, viaProposals: boolean, doc: Doc, date: string, now: number, result: RescueResult, week: WeekRescueResult, reason: RescueReason): boolean {
+  if (!viaProposals) {
+    if (kind === 'week') return attempt(() => applyWeekRescue(week, { reason }));
+    return attempt(() => applyRescue(date, result, { reason }));
+  }
+  const p = makeRescueProposal(doc, date, now, result, kind === 'today' ? null : week, { reason });
+  markProposalSeen(p.id);
+  return attempt(() => {
+    addProposal(p);
+    if (kind !== 'save') applyProposal(p.id, kind);
+  });
+}
 
 const LINE_ICON: Record<RescueChangeLine['kind'], ReactNode> = {
   kept: <Lock size={14} />,
@@ -35,8 +43,9 @@ const LINE_ICON: Record<RescueChangeLine['kind'], ReactNode> = {
   added: <CirclePlus size={14} />,
 };
 
-export function RescueV2({ onClose, apply = directApply }: { onClose: () => void; apply?: RescueApply }) {
+export function RescueV2({ onClose }: { onClose: () => void }) {
   const { doc, date, plan, ds } = useToday();
+  const viaProposals = useFlag('proposals');
   const toast = useStore((s) => s.toast);
   const [frozenNow] = useState(() => Date.now());
   const lateWake = useMemo(() => {
@@ -100,10 +109,15 @@ export function RescueV2({ onClose, apply = directApply }: { onClose: () => void
           >
             Not now
           </button>
-          <button className="btn" onClick={() => apply.week(week, reason) && done(weekChanges ? `Applied for the week: today rebuilt, ${weekChanges} mission${weekChanges > 1 ? 's' : ''} moved to later days.` : 'Applied for the week. Nothing needed to move to later days.')}>
+          {viaProposals && (
+            <button className="btn ghost" onClick={() => applyRescueChoice('save', true, doc, date, frozenNow, result, week, reason) && done('Saved as a proposal — review and apply it here or on another device.')}>
+              Save for review
+            </button>
+          )}
+          <button className="btn" onClick={() => applyRescueChoice('week', viaProposals, doc, date, frozenNow, result, week, reason) && done(weekChanges ? `Applied for the week: today rebuilt, ${weekChanges} mission${weekChanges > 1 ? 's' : ''} moved to later days.` : 'Applied for the week. Nothing needed to move to later days.')}>
             Apply for the week
           </button>
-          <button className="btn primary" onClick={() => apply.today(date, result, reason) && done('Rescued plan applied. One block at a time from here.')}>
+          <button className="btn primary" onClick={() => applyRescueChoice('today', viaProposals, doc, date, frozenNow, result, week, reason) && done('Rescued plan applied. One block at a time from here.')}>
             Apply for today
           </button>
         </>
@@ -186,7 +200,7 @@ export function RescueV2({ onClose, apply = directApply }: { onClose: () => void
   );
 }
 
-function TimelineBar({ label, blocks, from, span, ds, animateKey }: { label: string; blocks: PlanBlock[]; from: number; span: number; ds: number; animateKey?: string }) {
+export function TimelineBar({ label, blocks, from, span, ds, animateKey }: { label: string; blocks: PlanBlock[]; from: number; span: number; ds: number; animateKey?: string }) {
   const pos = (b: PlanBlock) => {
     const s = Math.max(b.s, from);
     return { left: `${((s - from) / span) * 100}%`, width: `${((b.e - s) / span) * 100}%` };

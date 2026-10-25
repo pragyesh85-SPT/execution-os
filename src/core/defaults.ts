@@ -158,5 +158,6 @@ export function emptyDoc(now = 0): Doc {
     distractions: {},
     later: {},
     reviews: {},
+    proposals: {},
   };
 }

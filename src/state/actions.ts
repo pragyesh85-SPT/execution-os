@@ -1,8 +1,10 @@
 import { normalizeDoc } from '../core/merge';
 import * as ops from '../core/ops';
+import * as proposals from '../core/proposals';
 import type { Op } from '../core/ops';
 import type { Doc } from '../core/types';
 import { logicalDate } from '../core/time';
+import { markProposalSeen } from '../lib/seen';
 import { useStore } from './store';
 
 // UI actions. Every edit is a pure op from src/core/ops.ts run through the store,
@@ -46,6 +48,22 @@ export const applyWeekRescue = (...a: Parameters<typeof ops.applyWeekRescue>) =>
 export const pinBlock = (...a: Parameters<typeof ops.pinBlock>) => up(ops.pinBlock(...a));
 export const addDayBlock = (...a: Parameters<typeof ops.addDayBlock>) => up(ops.addDayBlock(...a));
 export const moveDayBlock = (...a: Parameters<typeof ops.moveDayBlock>) => up(ops.moveDayBlock(...a));
+
+// ---------- proposals ----------
+export const addProposal = (...a: Parameters<typeof proposals.addProposal>) => up(proposals.addProposal(...a));
+export const applyProposal = (...a: Parameters<typeof proposals.applyProposal>) => up(proposals.applyProposal(...a));
+export const rejectProposal = (...a: Parameters<typeof proposals.rejectProposal>) => up(proposals.rejectProposal(...a));
+export const expireProposals = () => up(proposals.expireProposals());
+
+/** Re-check a stale proposal and return the id of the fresh one. */
+export function rebaseProposal(id: string): string {
+  let fresh = '';
+  up((d, now) => {
+    fresh = proposals.rebaseProposal(id)(d, now);
+  });
+  markProposalSeen(fresh);
+  return fresh;
+}
 
 /** Run an edit that may be refused (ops.OpError). Shows the refusal as a toast; returns true on success. */
 export function attempt(run: () => void): boolean {
