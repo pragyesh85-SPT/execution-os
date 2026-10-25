@@ -2,8 +2,9 @@ import { normalizeDoc } from '../core/merge';
 import { getRec, pendingKeys, planSync, sameRec, setRec, splitKey, type Change, type Conflict } from '../core/sync';
 import type { Doc, Synced } from '../core/types';
 import { platformLabel, servedOverHttp } from '../lib/platform';
+import { findHub, urlKind } from '../lib/pairing';
 import { uid } from './actions';
-import { useStore } from './store';
+import { useStore, type SyncInfo } from './store';
 
 // Device ↔ PC sync. The PC hub is the single source of truth.
 // - Every device works fully offline; edits wait in a local queue ("pending").
@@ -43,17 +44,41 @@ function saveSynced() {
 
 function hubBase(): string | null {
   if (sameOrigin) return '.';
-  const url = useStore.getState().local.syncUrl.trim().replace(/\/$/, '');
+  const { lastGoodUrl, hubUrls, syncUrl } = useStore.getState().local;
+  const url = (lastGoodUrl || hubUrls[0] || syncUrl).trim().replace(/\/$/, '');
   if (!url) return null;
   return /^https?:\/\//.test(url) ? url : `http://${url}`;
 }
 
+/** Which network path a hub address uses (shown in the status pill). */
+function pathOf(base: string): SyncInfo['path'] {
+  if (base === '.') return location.hostname.endsWith('.ts.net') ? 'https' : 'same-origin';
+  return urlKind(base);
+}
+
+let lastFailover = 0;
+
+/** The current address stopped answering: try the others (LAN first, then Tailscale), same hub only. */
+async function failover(): Promise<boolean> {
+  const { hubUrls, hubId, lastGoodUrl, syncUrl } = useStore.getState().local;
+  const urls = [...new Set([...hubUrls, ...(syncUrl ? [syncUrl] : [])])].filter(Boolean);
+  if (sameOrigin || urls.length < 2 || Date.now() - lastFailover < 10_000) return false;
+  lastFailover = Date.now();
+  const r = await findHub(urls, hubId, { lastGood: undefined });
+  if (r.ok && r.url !== lastGoodUrl) {
+    useStore.getState().setLocal({ lastGoodUrl: r.url });
+    return true;
+  }
+  if (!r.ok && r.reason === 'other_hub') useStore.getState().setSync({ status: 'offline', error: 'This address now belongs to a different Execution OS. Scan the QR on your PC again.' });
+  return false;
+}
+
 function headers(): Record<string, string> {
-  const { syncPin, deviceName } = useStore.getState().local;
+  const { syncPin, syncToken, deviceName } = useStore.getState().local;
   return {
     'Content-Type': 'application/json',
     'X-EOS-DEVICE': (deviceName || platformLabel).slice(0, 60),
-    ...(syncPin.trim() ? { 'X-EOS-PIN': syncPin.trim() } : {}),
+    ...(syncToken ? { 'X-EOS-TOKEN': syncToken } : syncPin.trim() ? { 'X-EOS-PIN': syncPin.trim() } : {}),
   };
 }
 
@@ -94,9 +119,10 @@ async function cycle() {
   busy = true;
   try {
     // 1. Download the PC's current state (or "nothing new").
-    const res = await fetch(`${base}/api/sync?rev=${rev}`, { headers: headers(), cache: 'no-store' });
+    const res = await fetch(`${base}/api/sync?rev=${rev}`, { headers: headers(), cache: 'no-store', signal: AbortSignal.timeout(8000) });
     if (res.status === 401) {
-      store.setSync({ status: 'pin', error: 'Enter the pairing PIN shown on the PC.' });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      store.setSync({ status: 'pin', error: j.error ?? 'Pair this device with the PC (scan the QR, or enter the PIN).' });
       return;
     }
     if (!res.ok) throw new Error(`Hub returned ${res.status}`);
@@ -167,6 +193,7 @@ async function cycle() {
     useStore.getState().setSync({
       status: 'online',
       hub: base === '.' ? 'same-origin' : 'remote',
+      path: pathOf(base),
       rev,
       lastAt: Date.now(),
       error: undefined,
@@ -174,6 +201,7 @@ async function cycle() {
     });
   } catch (err) {
     useStore.getState().setSync({ status: 'offline', error: (err as Error).message || 'PC not reachable' });
+    if (await failover().catch(() => false)) again = true;
   } finally {
     busy = false;
     updatePending();

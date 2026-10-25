@@ -10,7 +10,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { startSync } from './state/sync';
+import { initPairingLinks, takePairLink } from './state/pairing';
+import { useStore } from './state/store';
 import { isCapacitor, isElectron } from './lib/platform';
+
+// A pairing link (#pair=…) is read and removed from the address bar before anything else runs.
+initPairingLinks();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -19,6 +24,8 @@ createRoot(document.getElementById('root')!).render(
 );
 
 void startSync();
+const pairLink = takePairLink();
+if (pairLink) useStore.getState().open({ pairLink });
 
 // Offline support for the browser / iPhone home-screen version (needs a secure context).
 if ('serviceWorker' in navigator && window.isSecureContext && !isCapacitor && !isElectron && !import.meta.env.DEV) {

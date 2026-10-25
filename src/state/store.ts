@@ -3,6 +3,7 @@ import { normalizeDoc } from '../core/merge';
 import type { Doc } from '../core/types';
 import type { AiConfig } from '../lib/ai';
 import type { Conflict } from '../core/sync';
+import type { PairPayload } from '../lib/pairing';
 
 export type Tab = 'now' | 'plan' | 'clock' | 'review' | 'rules' | 'settings';
 
@@ -12,6 +13,11 @@ export interface LocalPrefs {
   ai: AiConfig;
   syncUrl: string;
   syncPin: string;
+  syncToken: string; // v2: device token from one-scan pairing (sent as X-EOS-TOKEN)
+  hubId: string; // v2: recognises the same hub after an address change
+  hubName: string;
+  hubUrls: string[]; // v2: every address of the hub, LAN first, then Tailscale
+  lastGoodUrl: string;
   githubToken: string;
   deviceName: string;
   motion: 'full' | 'system' | 'reduced';
@@ -24,6 +30,7 @@ export interface SyncInfo {
   error?: string;
   rev: number;
   pending: number; // changes on this device waiting for the PC
+  path?: 'same-origin' | 'wifi' | 'tailscale' | 'https';
   lastUploaded?: number; // how many changes the last cycle uploaded
 }
 
@@ -46,6 +53,7 @@ export interface Overlays {
   later: boolean;
   conflicts: boolean;
   proposals?: boolean; // v2: proposal review sheet
+  pairLink?: PairPayload; // v2: the page was opened from the PC's pairing QR
 }
 
 interface Store {
@@ -86,6 +94,11 @@ const defaultLocal: LocalPrefs = {
   ai: { provider: 'anthropic', apiKey: '', model: 'claude-opus-5-5', baseUrl: '' },
   syncUrl: '',
   syncPin: '',
+  syncToken: '',
+  hubId: '',
+  hubName: '',
+  hubUrls: [],
+  lastGoodUrl: '',
   githubToken: '',
   deviceName: '',
   motion: 'full',
@@ -94,6 +107,8 @@ const defaultLocal: LocalPrefs = {
 const initialDoc = normalizeDoc(readJson<Doc>(DOC_KEY));
 const initialLocal: LocalPrefs = { ...defaultLocal, ...(readJson<LocalPrefs>(LOCAL_KEY) ?? {}) };
 initialLocal.ai = { ...defaultLocal.ai, ...(initialLocal.ai ?? {}) };
+// v1 kept one address; v2 keeps all of them (failover). Carry the old one over.
+if (!initialLocal.hubUrls?.length && initialLocal.syncUrl) initialLocal.hubUrls = [initialLocal.syncUrl];
 
 let toastSeq = 1;
 

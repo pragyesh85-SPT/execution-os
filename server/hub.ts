@@ -12,7 +12,9 @@ import { HubDb } from './db';
 import { listAudit, undoAudit, lastSuccess } from './mcp/audit';
 import { createConnector, type Connector } from './mcp/connector';
 import type { GatewayOptions } from './mcp/gateway';
-import type { Tunnel } from './tunnel';
+import { tailscale, type Tunnel } from './tunnel';
+import { Devices, pairUrl, type PairPayload } from './devices';
+import { orderUrls } from '../src/lib/pairing';
 
 // The Execution OS hub — your PC is the server and the database for every device.
 // - serves the built web app
@@ -30,6 +32,7 @@ export interface HubOptions {
   host?: string;
   log?: (msg: string) => void;
   mcpPort?: number; // AI connector gateway (default 4748, loopback only)
+  pairTtlMs?: number; // pairing token lifetime (default 5 minutes)
   tunnel?: Tunnel; // Tailscale control (tests inject a fake)
   gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'>;
 }
@@ -47,6 +50,7 @@ export interface Hub {
   lanUrls: () => string[];
   endpoints: () => Endpoint[];
   connector: Connector;
+  devices: Devices;
   close: () => Promise<void>;
 }
 
@@ -66,9 +70,15 @@ const MIME: Record<string, string> = {
   '.mp3': 'audio/mpeg',
 };
 
-function isLoopback(req: IncomingMessage): boolean {
+/**
+ * "This PC": the socket is loopback AND no local proxy forwarded the request. Tailscale Serve (or any
+ * reverse proxy) connects from 127.0.0.1 but adds forwarding headers — those requests need auth.
+ */
+export function isLoopback(req: IncomingMessage): boolean {
   const a = req.socket.remoteAddress ?? '';
-  return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+  const socketLocal = a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+  const h = req.headers;
+  return socketLocal && !h['x-forwarded-for'] && !h['forwarded'] && !h['tailscale-user-login'] && !h['x-forwarded-host'];
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -133,6 +143,22 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
   }, 10 * 60 * 1000);
 
+  const devices = new Devices(db, { ttlMs: opts.pairTtlMs });
+  const pairedRecently: { name: string; at: number }[] = [];
+  const tunnel = opts.tunnel ?? tailscale;
+  let serveUrl: string | null = null;
+  const refreshServe = async () => {
+    try {
+      const info = await tunnel.info();
+      serveUrl = info.running && info.dnsName && (await tunnel.serveActive(opts.port)) ? `https://${info.dnsName}` : null;
+    } catch {
+      serveUrl = null;
+    }
+  };
+  void refreshServe();
+  /** Every address this hub can be reached on: LAN first, then Tailscale, then the private HTTPS name. */
+  const hubUrls = () => orderUrls([...endpoints().map((e) => e.url), ...(serveUrl ? [serveUrl] : [])]);
+
   const endpoints = (): Endpoint[] =>
     lanAddresses().map((ip) => ({ url: `http://${ip}:${opts.port}`, kind: isTailscale(ip) ? 'tailscale' : 'wifi' }));
 
@@ -164,7 +190,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     const path = url.pathname;
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-EOS-PIN,X-EOS-DEVICE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-EOS-PIN,X-EOS-DEVICE,X-EOS-TOKEN');
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
     if (req.method === 'OPTIONS') return void res.writeHead(204).end();
 
@@ -175,11 +201,37 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
 
     const local = isLoopback(req);
-    if (path === '/api/ping') return send(res, 200, { ok: true, app: 'execution-os', version: 2, appVersion: __APP_VERSION__, needsPin: !local, rev: db.rev });
-    if (!local && req.headers['x-eos-pin'] !== db.pin) {
-      return send(res, 401, { error: 'Pairing PIN required. Find it on the PC under Settings → Devices & sync.' });
+    if (path === '/api/ping') return send(res, 200, { ok: true, app: 'execution-os', version: 2, appVersion: __APP_VERSION__, needsPin: !local, rev: db.rev, hubId: devices.hubId, hubName: devices.hubName });
+
+    // ---------- pairing (the single-use token is the credential) ----------
+    try {
+      if (path === '/api/pair/claim' && req.method === 'POST') {
+        const body = JSON.parse(await readBody(req, 4096)) as { t?: string; deviceName?: string; platform?: string };
+        const r = devices.claim(String(body.t ?? ''), String(body.deviceName ?? ''), String(body.platform ?? ''));
+        if (!r) return send(res, 401, { error: 'This pairing code has expired or was already used. Show a fresh QR on the PC.' });
+        if (r.status === 'pending') return send(res, 202, { claimId: r.claimId });
+        log(`paired: ${String(body.deviceName ?? 'device')}`);
+        pairedRecently.push({ name: String(body.deviceName ?? 'Device').slice(0, 60), at: Date.now() });
+        return send(res, 200, { deviceId: r.deviceId, deviceToken: r.deviceToken, hubId: devices.hubId, hubName: devices.hubName, urls: hubUrls() });
+      }
+      if (path === '/api/pair/status' && req.method === 'GET') {
+        const c = devices.claimStatus(String(url.searchParams.get('claimId') ?? ''));
+        if (!c) return send(res, 404, { error: 'Unknown pairing request.' });
+        if (c.status === 'approved' && c.result) return send(res, 200, { status: 'approved', ...c.result, hubId: devices.hubId, hubName: devices.hubName, urls: hubUrls() });
+        return send(res, 200, { status: c.status });
+      }
+    } catch (err) {
+      return send(res, 400, { error: (err as Error).message });
     }
-    const device = String(req.headers['x-eos-device'] ?? (local ? 'this PC' : 'device')).slice(0, 60);
+
+    const tokenDevice = devices.verify(req.headers['x-eos-token'] as string | undefined);
+    const pinOk = !devices.pinDisabled && !!req.headers['x-eos-pin'] && req.headers['x-eos-pin'] === db.pin;
+    if (!local && !tokenDevice && !pinOk) {
+      return send(res, 401, {
+        error: req.headers['x-eos-token'] ? 'This device was disconnected from the PC. Scan the QR on the PC again.' : 'Pairing needed. Scan the QR on the PC (Settings → Devices & sync), or enter the PIN.',
+      });
+    }
+    const device = String(tokenDevice?.name ?? req.headers['x-eos-device'] ?? (local ? 'this PC' : 'device')).slice(0, 60);
 
     try {
       if ((path === '/api/sync' || path === '/api/state') && req.method === 'GET') {
@@ -214,14 +266,14 @@ export function startHub(opts: HubOptions): Promise<Hub> {
       if (path === '/api/later' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req, 64 * 1024)) as { url?: string; title?: string };
         const url = typeof body.url === 'string' ? body.url.slice(0, 2000) : undefined;
-        db.mutate(ops.addLater(String(body.title || url || 'Saved link').slice(0, 300), url), 'extension');
+        db.mutate(ops.addLater(String(body.title || url || 'Saved link').slice(0, 300), url), tokenDevice || req.headers['x-eos-device'] ? device : 'extension');
         return send(res, 200, { ok: true });
       }
       if (path === '/api/distraction' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req, 16 * 1024)) as { minutes?: number; source?: string; kind?: string };
         const minutes = Math.max(0, Math.min(600, Number(body.minutes) || 0));
         const kind = body.kind === 'urge_resisted' ? 'urge_resisted' : 'unplanned';
-        db.mutate(ops.logDistraction(minutes, String(body.source ?? 'Browser').slice(0, 60), kind), 'extension');
+        db.mutate(ops.logDistraction(minutes, String(body.source ?? 'Browser').slice(0, 60), kind), tokenDevice || req.headers['x-eos-device'] ? device : 'extension');
         return send(res, 200, { ok: true });
       }
       if (path === '/api/history' && req.method === 'GET') {
@@ -230,6 +282,48 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         if (!col || !id) return send(res, 400, { error: 'col and id required' });
         return send(res, 200, { history: db.history(col, id) });
       }
+      // ---------- devices & pairing (this PC only) ----------
+      if (path.startsWith('/api/pair/') || path.startsWith('/api/devices') || path === '/api/serve') {
+        if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
+        if (path === '/api/pair/start' && req.method === 'POST') {
+          const s = devices.start();
+          const urls = hubUrls();
+          const payload: PairPayload = { v: 1, h: s.hubId, n: s.hubName, t: s.pairToken, u: urls };
+          const base = urls.find((u) => u.startsWith('https://')) ?? urls[0] ?? `http://localhost:${opts.port}`;
+          return send(res, 200, { ...s, urls, qrText: pairUrl(base, payload) });
+        }
+        if (path === '/api/pair/pending' && req.method === 'GET') return send(res, 200, { pending: devices.pending() });
+        if ((path === '/api/pair/approve' || path === '/api/pair/deny') && req.method === 'POST') {
+          const body = JSON.parse(await readBody(req, 4096)) as { claimId?: string };
+          return send(res, devices.decide(String(body.claimId ?? ''), path.endsWith('approve')) ? 200 : 404, { ok: true });
+        }
+        if (path === '/api/devices' && req.method === 'GET') {
+          const recent = pairedRecently.filter((p) => p.at > Date.now() - 60_000);
+          return send(res, 200, { devices: devices.list(), requireApproval: devices.requireApproval, pinDisabled: devices.pinDisabled, recent, hubId: devices.hubId, hubName: devices.hubName, serveUrl });
+        }
+        if (path === '/api/devices/revoke' && req.method === 'POST') {
+          const body = JSON.parse(await readBody(req, 4096)) as { id?: string };
+          return send(res, devices.revoke(String(body.id ?? '')) ? 200 : 404, { devices: devices.list() });
+        }
+        if (path === '/api/devices/options' && req.method === 'POST') {
+          const body = JSON.parse(await readBody(req, 4096)) as { requireApproval?: boolean; pinDisabled?: boolean };
+          if (typeof body.requireApproval === 'boolean') devices.setOption('requireApproval', body.requireApproval);
+          if (typeof body.pinDisabled === 'boolean') devices.setOption('pinDisabled', body.pinDisabled);
+          return send(res, 200, { requireApproval: devices.requireApproval, pinDisabled: devices.pinDisabled });
+        }
+        if (path === '/api/serve') {
+          if (req.method === 'POST') {
+            // Private HTTPS inside the tailnet only (never public): https://<pc>.ts.net → this hub.
+            const r = await tunnel.serveOn(`http://127.0.0.1:${opts.port}`);
+            await refreshServe();
+            return send(res, 200, { result: r, url: serveUrl });
+          }
+          await refreshServe();
+          return send(res, 200, { url: serveUrl });
+        }
+        return send(res, 404, { error: 'Not found' });
+      }
+
       // ---------- AI activity (all paired devices) ----------
       if (path === '/api/ai-activity' && req.method === 'GET') {
         return send(res, 200, { entries: listAudit(db, 100).map(({ args, ...e }) => ({ ...e, args: args.slice(0, 300) })), last: lastSuccess(db) });
@@ -313,6 +407,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         lanUrls: () => endpoints().map((e) => e.url),
         endpoints,
         connector,
+        devices,
         close: async () => {
           clearInterval(backupTimer);
           clearInterval(expireTimer);

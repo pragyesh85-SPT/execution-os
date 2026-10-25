@@ -1,5 +1,5 @@
 // Execution OS service worker: app shell works offline. API calls always go to the network.
-const CACHE = 'eos-shell-v1';
+const CACHE = 'eos-shell-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon-192.png'])).then(() => self.skipWaiting()));

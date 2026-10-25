@@ -1,5 +1,6 @@
 import { useStore } from '../state/store';
 import { useNow } from '../state/runtime';
+import { PATH_LABEL } from '../lib/pairing';
 
 const COLOR = {
   local: 'var(--ink-3)',
@@ -19,8 +20,8 @@ export function SyncBadge() {
 
   let text: string;
   if (conflicts) text = `${conflicts} to decide`;
-  else if (sync.status === 'online') text = sync.pending ? `Uploading ${sync.pending}…` : 'Synced with PC';
-  else if (sync.status === 'offline') text = sync.pending ? `PC offline · ${sync.pending} saved here` : 'PC offline · working locally';
+  else if (sync.status === 'online') text = sync.pending ? `Uploading ${sync.pending}…` : sync.path && sync.path !== 'same-origin' ? `Synced · ${PATH_LABEL[sync.path]}` : 'Synced with PC';
+  else if (sync.status === 'offline') text = sync.pending ? `Offline — ${sync.pending} change${sync.pending > 1 ? 's' : ''} waiting` : 'PC offline · working locally';
   else if (sync.status === 'pin') text = 'PIN needed';
   else if (sync.status === 'connecting') text = 'Connecting…';
   else text = sync.pending ? `This device only · ${sync.pending} unsynced` : 'This device only';

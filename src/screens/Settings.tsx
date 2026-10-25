@@ -16,6 +16,7 @@ import { isAndroid, isCapacitor, isElectron, native, platformLabel, type HubInfo
 import { startAlarm, unlockAudio } from '../lib/sound';
 import { Rules } from './Rules';
 import { ActivitySection, ConnectorSection } from './ConnectorSettings';
+import { PcPairingCard, PhonePairingCard } from './DevicesV2';
 import { useFlag } from '../state/hooks';
 
 const SECTIONS = [
@@ -462,6 +463,7 @@ function AiSection() {
 // ---------------- devices ----------------
 
 function DevicesSection() {
+  const qrPairing = useFlag('qrPairing');
   const local = useStore((s) => s.local);
   const setLocal = useStore((s) => s.setLocal);
   const sync = useStore((s) => s.sync);
@@ -587,9 +589,12 @@ function DevicesSection() {
         </section>
       )}
 
+      {info && qrPairing && <PcPairingCard />}
+      {!info && qrPairing && <PhonePairingCard />}
+
       {info && (
         <section className="card">
-          <h2 className="card-title">Connect your phone</h2>
+          <h2 className="card-title">{qrPairing ? 'Or connect with the address and PIN' : 'Connect your phone'}</h2>
           <div className="qr-card">
             {qr ? <img src={qr} alt="Hub address QR" /> : <span />}
             <div className="stack" style={{ gap: 8 }}>
@@ -660,7 +665,7 @@ function DevicesSection() {
 
       {sync.hub !== 'same-origin' && !info && (
         <section className="card">
-          <h2 className="card-title">Connect to your PC</h2>
+          <h2 className="card-title">{qrPairing ? 'Or connect with the address and PIN' : 'Connect to your PC'}</h2>
           <div className="form-grid">
             <Field label="PC address" hint="Shown on the PC under Settings → Devices & sync. Use the Tailscale one to sync from anywhere.">
               <input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://100.x.x.x:4747" inputMode="url" />
