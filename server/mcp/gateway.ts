@@ -20,7 +20,7 @@ export interface GatewayOptions {
   ctx?: Omit<ToolCtx, 'db' | 'client'>;
   extraRoutes?: (req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean> | boolean; // OAuth (phase 11)
   authenticate?: (req: IncomingMessage) => string | null; // alternative auth (OAuth access tokens)
-  wwwAuthenticate?: () => string;
+  wwwAuthenticate?: (req: IncomingMessage) => string;
   rateLimitPerMin?: number; // default 60 requests per minute per address
 }
 
@@ -67,7 +67,7 @@ export function startGateway(opts: GatewayOptions): Promise<Gateway> {
   ensureAuthTables(db);
   ensureAuditTable(db);
   const guard = new Guard(opts.rateLimitPerMin ?? 60);
-  const challenge = () => opts.wwwAuthenticate?.() ?? 'Bearer realm="execution-os"';
+  const challenge = (req: IncomingMessage) => opts.wwwAuthenticate?.(req) ?? 'Bearer realm="execution-os"';
 
   const hostAllowed = (host: string | undefined) => {
     if (!host) return false;
@@ -90,7 +90,7 @@ export function startGateway(opts: GatewayOptions): Promise<Gateway> {
       const client = verifyBearer(db, req.headers.authorization as string | undefined) ?? opts.authenticate?.(req) ?? null;
       if (!client) {
         guard.failed(ip);
-        return json(res, 401, { error: 'A valid connector token is required.' }, { 'WWW-Authenticate': challenge() });
+        return json(res, 401, { error: 'A valid connector token is required.' }, { 'WWW-Authenticate': challenge(req) });
       }
       guard.succeeded(ip);
       if (!isOn(db.doc.settings, 'mcp')) return json(res, 503, { error: 'The AI connector is switched off in Execution OS (Settings → Labs).' });

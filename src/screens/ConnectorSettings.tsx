@@ -238,6 +238,8 @@ export function ConnectorSection() {
         </section>
       )}
 
+      {st.enabled && <ConnectedAppsCard />}
+
       <section className="card">
         <h2 className="card-title">Set up Claude (once)</h2>
         <ol style={{ margin: 0, paddingLeft: 18, fontSize: 14, display: 'grid', gap: 6 }}>
@@ -250,6 +252,9 @@ export function ConnectorSection() {
           <li>In a chat, open “+” → Connectors and enable Execution OS. Set read tools to “Always allow” and write tools to “Ask”.</li>
           <li>Test: “What’s my current block in Execution OS?”</li>
         </ol>
+        <p className="muted" style={{ fontSize: 13, margin: '10px 0 0' }}>
+          No token? Add only the link: the app opens a sign-in page and you approve it under “Connected AI apps” (or with your PIN). This is how ChatGPT and other apps connect.
+        </p>
         <div className="divider" />
         <div className="stack" style={{ gap: 6 }}>
           <strong style={{ fontSize: 14 }}>Claude Code on this PC</strong>
@@ -368,5 +373,75 @@ export function ActivitySection() {
         </section>
       ))}
     </div>
+  );
+}
+
+interface OAuthInfo {
+  enabled: boolean;
+  pending: { id: string; clientName: string; at: number }[];
+  clients: { clientId: string; name: string; label: string; createdAt: number; revokedAt: number | null; lastUsed: number | null; activeTokens: number }[];
+}
+
+/** AI apps that connected by signing in (OAuth) instead of a pasted token. */
+export function ConnectedAppsCard() {
+  const toast = useStore((s) => s.toast);
+  const [info, setInfo] = useState<OAuthInfo | null>(null);
+  const load = () =>
+    call<OAuthInfo>('oauth')
+      .then(setInfo)
+      .catch(() => setInfo(null));
+  useEffect(() => {
+    void load();
+    const t = window.setInterval(load, 3000); // a sign-in waits for approval here
+    return () => window.clearInterval(t);
+  }, []);
+  if (!info) return null;
+  const act = async (body: Record<string, unknown>, msg: string) => {
+    try {
+      setInfo(await call<OAuthInfo>('oauth', body));
+      toast(msg, 'success');
+    } catch (e) {
+      toast((e as Error).message, 'warn');
+    }
+  };
+  const active = info.clients.filter((c) => !c.revokedAt);
+  return (
+    <section className="card">
+      <h2 className="card-title">Connected AI apps (sign-in)</h2>
+      <Row name="Allow sign-in" desc="ChatGPT and other apps can connect with just the link: they open a sign-in page and you approve it here (or with your PIN). Turning this off keeps token connections working.">
+        <Toggle on={info.enabled} onChange={(v) => void act({ action: v ? 'enable' : 'disable' }, v ? 'Sign-in allowed.' : 'Sign-in turned off. Token connections still work.')} label="Allow sign-in" />
+      </Row>
+      {info.pending.map((p) => (
+        <div key={p.id} className="banner" data-tone="drifting" style={{ margin: '8px 0' }}>
+          <KeyRound size={18} />
+          <div className="grow">
+            <h3>{p.clientName} wants to connect</h3>
+            <p>Approve only if you just started this from that app.</p>
+            <div className="btn-row">
+              <button className="btn primary sm" onClick={() => void act({ action: 'approve', id: p.id }, `${p.clientName} connected.`)}>
+                Approve
+              </button>
+              <button className="btn ghost sm" onClick={() => void act({ action: 'deny', id: p.id }, 'Denied.')}>
+                Deny
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      {active.length === 0 ? (
+        <p className="muted" style={{ margin: 0 }}>No app has signed in yet.</p>
+      ) : (
+        active.map((c) => (
+          <div key={c.clientId} className="row between" style={{ borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 8 }}>
+            <span>
+              <strong>{c.name}</strong> <span className="faint">· shows as “{c.label}” in AI activity · last used {ago(c.lastUsed)}</span>
+            </span>
+            <button className="btn ghost sm danger" onClick={() => void act({ action: 'revoke', clientId: c.clientId }, `${c.name} disconnected.`)}>
+              Revoke
+            </button>
+          </div>
+        ))
+      )}
+    </section>
   );
 }

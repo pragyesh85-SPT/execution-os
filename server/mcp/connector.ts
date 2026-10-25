@@ -3,6 +3,7 @@ import { sleepOnAcMinutes, tailscale, type TailscaleInfo, type Tunnel, type Tunn
 import { lastSuccess } from './audit';
 import { listClients, revokeToken, rotateToken } from './auth';
 import { startGateway, type Gateway, type GatewayOptions } from './gateway';
+import { OAuth } from './oauth';
 
 // The AI connector switch. Off by default. Turning it on starts the gateway on 127.0.0.1:4748;
 // "Publish" asks Tailscale Funnel to expose only that listener on https://<pc>.ts.net:8443.
@@ -37,9 +38,10 @@ export interface Connector {
   rotate(client: string): string;
   revoke(client: string): void;
   close(): Promise<void>;
+  oauth: OAuth;
 }
 
-export function createConnector(opts: { db: HubDb; port: number; tunnel?: Tunnel; log?: (m: string) => void; gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'> }): Connector {
+export function createConnector(opts: { db: HubDb; port: number; tunnel?: Tunnel; log?: (m: string) => void; gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'>; oauthAccessTtlMs?: number }): Connector {
   const { db, port } = opts;
   const tunnel = opts.tunnel ?? tailscale;
   const log = opts.log ?? (() => {});
@@ -47,6 +49,22 @@ export function createConnector(opts: { db: HubDb; port: number; tunnel?: Tunnel
   let timer: ReturnType<typeof setInterval> | null = null;
   let last: Pick<ConnectorStatus, 'tailscale' | 'funnel' | 'reachable' | 'checkedAt' | 'sleepOnAcMin' | 'enableUrl'> = { tailscale: null, funnel: null, reachable: null, checkedAt: null, sleepOnAcMin: null };
   const publicHost = () => db.getMeta('mcp.publicHost') ?? null;
+  const oauth = new OAuth(db, { accessTtlMs: opts.oauthAccessTtlMs });
+  /** The base URL the caller used: the public Funnel name, or this PC. */
+  const baseFor = (host: string | undefined) => {
+    const pub = publicHost();
+    const h = (host ?? '').toLowerCase();
+    return pub && (h === pub || h.startsWith(`${pub}:`)) ? `https://${pub}:${FUNNEL_PORT}` : `http://localhost:${port}`;
+  };
+  const resources = () => [`http://localhost:${port}/mcp`, `http://127.0.0.1:${port}/mcp`, ...(publicHost() ? [`https://${publicHost()}:${FUNNEL_PORT}/mcp`] : [])];
+  const oauthGateway: Pick<GatewayOptions, 'extraRoutes' | 'authenticate' | 'wwwAuthenticate'> = {
+    extraRoutes: (req, res, url) => oauth.handle(req, res, url, baseFor(req.headers.host)),
+    authenticate: (req) => {
+      const m = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? '').trim());
+      return m ? (oauth.verify(m[1], resources())?.label ?? null) : null;
+    },
+    wwwAuthenticate: (req) => oauth.wwwAuthenticate(baseFor(req.headers.host)),
+  };
 
   const status = (): ConnectorStatus => {
     const host = publicHost();
@@ -86,7 +104,7 @@ export function createConnector(opts: { db: HubDb; port: number; tunnel?: Tunnel
   const enable = async () => {
     db.setMeta('mcp.enabled', '1');
     if (!gw) {
-      gw = await startGateway({ ...(opts.gateway ?? {}), db, port, publicHost, log });
+      gw = await startGateway({ ...oauthGateway, ...(opts.gateway ?? {}), db, port, publicHost, log });
       timer = setInterval(() => void check().catch(() => {}), 5 * 60_000);
     }
     return status();
@@ -142,6 +160,7 @@ export function createConnector(opts: { db: HubDb; port: number; tunnel?: Tunnel
     unpublish,
     check,
     status,
+    oauth,
     rotate: (client) => rotateToken(db, client),
     revoke: (client) => revokeToken(db, client),
     async close() {
