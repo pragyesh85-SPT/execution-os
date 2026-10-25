@@ -241,6 +241,23 @@ describe('targets through the connector', () => {
   });
 });
 
+describe('analytics and coaching through the connector', () => {
+  it('get_analytics carries the engine verdict, and post_coaching_note cannot change it', async () => {
+    const c = await connect();
+    const a = await call(c, 'get_analytics', { from: '2026-10-05', to: '2026-10-11' });
+    expect(a.isError).toBeFalsy();
+    const coach = (a.structuredContent as { coach: { grade: string; score: number; profile: string; evidence: string[] } }).coach;
+    expect(coach.evidence).toHaveLength(3);
+    const p = await call(c, 'post_coaching_note', { weekStart: '2026-10-05', leak: 'Afternoons', change: { cue: 'IF the founder block starts THEN open the mission' }, text: 'Short and honest.' });
+    expect(p.isError).toBeFalsy();
+    const note = p.structuredContent as { grade: string; score: number; profile: string };
+    expect([note.grade, note.score, note.profile]).toEqual([coach.grade, coach.score, coach.profile]);
+    const sneaky = await call(c, 'post_coaching_note', { leak: 'x', change: { cue: 'IF a THEN b' }, grade: 'A' });
+    expect(sneaky.isError).toBe(true); // unknown field: the AI cannot pass a grade
+    await c.close();
+  });
+});
+
 describe('connector switch', () => {
   it('the Labs flag stops tool calls without touching data', async () => {
     hub.db.mutate(ops.setFeature('mcp', false), 'test');

@@ -169,6 +169,18 @@ function ProfileSection() {
       <Row name="Weekly entertainment budget" desc="Planned movies/videos draw from this; unplanned distraction does too.">
         <MinutesSelect value={s.entBudgetMin} onChange={(v) => set({ entBudgetMin: v })} options={[0, 60, 120, 180, 240, 300, 360, 480, 600]} />
       </Row>
+      <Row name="Coach tone" desc="How bluntly the weekly coach words things. The grade itself never changes.">
+        <Segmented
+          id="coach-tone"
+          value={s.coachStrictness ?? 'direct'}
+          onChange={(v) => set({ coachStrictness: v })}
+          options={[
+            { value: 'gentle', label: 'Gentle' },
+            { value: 'direct', label: 'Direct' },
+            { value: 'drill', label: 'Drill sergeant' },
+          ]}
+        />
+      </Row>
       <MotionRow />
       <Row name="Sounds" desc="Block-change chime and completion tones.">
         <Toggle on={s.sound} onChange={(v) => set({ sound: v })} label="Sounds" />

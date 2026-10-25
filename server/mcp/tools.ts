@@ -8,6 +8,7 @@ import { addProposal, applyProposal, isStale, makeProposal, makeRescueProposal, 
 import { buildRescue, buildWeekRescue, rescueOptions, STRATEGY_LABEL } from '../../src/core/rescue';
 import { slotRates, weekStats } from '../../src/core/stats';
 import { goalProgress, goalsFor, upsertGoal, type GoalInput } from '../../src/core/goals';
+import { coachVerdict, postCoachingNote } from '../../src/core/coach';
 import type { Category, Doc, Mission, Outcome, PlanBlock, ProposedDay, RescueStrategy } from '../../src/core/types';
 import { addDays, dayStartMs, MIN, offsetOf, weekKey } from '../../src/core/time';
 import type { HubDb } from '../db';
@@ -66,6 +67,7 @@ export const CORE_TOOLS = [
   'reject_proposal',
   'get_goals',
   'upsert_goals',
+  'post_coaching_note',
 ] as const;
 
 const MAX_RESULT = 50 * 1024;
@@ -297,9 +299,36 @@ export function buildServer(ctx: ToolCtx): McpServer {
     const to = checkDate(a.to);
     if (to < from) throw new InputError('"to" is before "from".');
     if (ctx.analyticsFor) return ctx.analyticsFor(tx.doc, from, to, tx.now);
-    const weeks: ReturnType<typeof weekStats>[] = [];
-    for (let w = weekKey(from); w <= to && weeks.length < 13; w = addDays(w, 7)) weeks.push(weekStats(tx.doc, w, tx.now));
-    return { summary: `${weeks.length} week${weeks.length === 1 ? '' : 's'} of statistics.`, data: { from, to, weeks: weeks.map((s) => ({ weekStart: s.weekStart, adherence: s.adherence, iitRate: s.iitRate, founderMinutes: s.founderMinutes, distractionMin: s.distractionMin, insights: s.insights, recommendation: s.recommendation })) } };
+    if (addDays(from, 120) < to) throw new InputError('Ask for at most about 4 months at a time.');
+    const v = coachVerdict(tx.doc, from, to, tx.now);
+    const an = v.analytics;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const leaks = an.drift.heat
+      .flatMap((row, wd) => row.map((m, h) => ({ when: `${WD[wd]} ${String(h).padStart(2, '0')}:00`, minutes: Math.round(m) })))
+      .filter((x) => x.minutes > 0)
+      .sort((x, y) => y.minutes - x.minutes)
+      .slice(0, 5);
+    const stats = weekStats(tx.doc, weekKey(from), tx.now);
+    return {
+      summary: `${an.from} → ${an.to}: grade ${v.grade} (${v.score}), ${v.profile}. These numbers come from the engine — narrate them, do not change them.`,
+      data: {
+        from: an.from,
+        to: an.to,
+        finishedFocusBlocks: an.finishedFocus,
+        verifiedDeepWorkHours: r2(an.deepWorkHours),
+        onTimeStartRate: r2(an.onTime.rate),
+        missionCompletion: { ...an.completion, rate: r2(an.completion.rate) },
+        driftMinutes: { lateStarts: an.drift.lateMinutes, unplannedDistraction: an.drift.distractionMinutes, worstSlots: leaks },
+        rescues: { count: an.rescues.count, perWeek: r2(an.rescues.perWeek), reasons: an.rescues.reasons },
+        planAccuracy: { byCategory: an.planAccuracy.byCategory.map((c) => ({ ...c, ratio: r2(c.ratio) })), estimateRatio: an.planAccuracy.estimateRatio === null ? null : r2(an.planAccuracy.estimateRatio) },
+        anchors: { wakeOnTime: an.anchors.wakeOnTime, devotionMinimumMet: an.anchors.devotionMet, studyMinimumMet: an.anchors.studyMet },
+        entertainment: an.entertainment,
+        focusQuality: { averageSessionMinutes: Math.round(an.focus.avgSession), longestSessionMinutes: Math.round(an.focus.longestSession) },
+        weeklyInsights: stats.insights,
+        coach: { grade: v.grade, score: v.score, profile: v.profile, evidence: v.evidence, suggestedLeak: v.leak, suggestedChange: v.change.cue, strictness: tx.doc.settings.coachStrictness ?? 'direct' },
+      },
+    };
   });
 
   reg('get_principles', { title: 'Principles', kind: 'read', input: strict({}), description: 'The 12 principles of Execution OS and how the engine treats AI (what applies directly, what becomes a proposal, time conventions). Read once per conversation.' }, () => ({ summary: 'The principles of Execution OS.', data: { text: PRINCIPLES } }));
@@ -431,6 +460,13 @@ export function buildServer(ctx: ToolCtx): McpServer {
   reg('upsert_goals', { title: 'Create or update targets', kind: 'write', input: strict({ goals: z.array(goalInput).min(1).max(20) }), description: 'Create targets (no id) or update them (with id). Never deletes — to drop one, set status "dropped". Keep it small: at most 5 yearly targets and 3 per goal per month. Measurable metrics only: hours (optionally of categories), count (with a unit), binary, or milestones. Link months to a year target and weeks to a month target with parentId.' }, (a: { goals: z.infer<typeof goalInput>[] }, tx) => {
     const ids = writeGoals(tx, a.goals);
     return { summary: `Saved ${ids.length} target${ids.length === 1 ? '' : 's'}.`, data: { ids, goals: ids.map((id) => goalView(tx.doc, tx.doc.goals[id], tx.now)) } };
+  });
+
+  reg('post_coaching_note', { title: 'Post the weekly coaching note', kind: 'write', input: strict({ weekStart: date().optional(), wentWell: z.string().max(300).optional(), leak: z.string().min(1).max(400), change: strict({ cue: z.string().min(5).max(300) }), text: z.string().max(1000).optional() }), description: 'Save the week’s coaching card. You supply only wentWell (skip it if nothing genuinely went well), the biggest leak, one change phrased "IF … THEN …", and text (max 120 words). The grade, score, profile and evidence are filled in by the engine — you cannot set or soften them. Honest about behaviour, never insulting about the person.' }, (a: { weekStart?: string; wentWell?: string; leak: string; change: { cue: string }; text?: string }, tx) => {
+    const ws = weekKey(dayOf(tx.doc, a.weekStart, tx.now));
+    const id = tx.write(postCoachingNote(ws, { wentWell: a.wentWell, leak: a.leak, change: a.change, text: a.text }, 'mcp', ctx.client, tx.now));
+    const n = tx.doc.coaching[id];
+    return { summary: `Coaching card for the week of ${ws}: grade ${n.grade} (${n.score}). Show it to the user.`, data: { id, grade: n.grade, score: n.score, profile: n.profile, evidence: n.evidence, wentWell: n.wentWell ?? null, leak: n.leak, change: n.change.cue, text: n.text ?? null } };
   });
 
   ctx.extraTools?.(reg, ctx);

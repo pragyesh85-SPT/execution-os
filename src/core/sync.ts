@@ -233,5 +233,7 @@ export function describeRec(col: RecCol, rec: Synced | null | undefined): string
       return `Proposal · ${String(r.title ?? '')}`;
     case 'goals':
       return `Target · ${String(r.title ?? '')}`;
+    case 'coaching':
+      return `Coaching · ${rec.id}`;
   }
 }

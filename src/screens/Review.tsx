@@ -10,8 +10,12 @@ import { saveReview, today } from '../state/actions';
 import { useNow } from '../state/runtime';
 import { useStore } from '../state/store';
 import { aiComplete } from '../lib/ai';
+import { useFlag } from '../state/hooks';
+import { AnalyticsSection, CoachCard } from './Insights';
 
 export function Review() {
+  const analyticsOn = useFlag('analytics');
+  const coachingOn = useFlag('coaching');
   const doc = useStore((s) => s.doc);
   const local = useStore((s) => s.local);
   const toast = useStore((s) => s.toast);
@@ -59,7 +63,7 @@ export function Review() {
     <div>
       <header className="page-head">
         <div>
-          <h1>Weekly review</h1>
+          <h1>{analyticsOn || coachingOn ? 'Insights' : 'Weekly review'}</h1>
           <p>Observe → measure → adjust → repeat. One change per week, not ten.</p>
         </div>
         <div className="row">
@@ -74,6 +78,16 @@ export function Review() {
           </button>
         </div>
       </header>
+
+      {(analyticsOn || coachingOn) && (
+        <div className="stack lg" style={{ marginBottom: 24 }}>
+          {coachingOn && <CoachCard />}
+          {analyticsOn && <AnalyticsSection />}
+          <h2 className="card-title" style={{ margin: '8px 0 0' }}>
+            Weekly review
+          </h2>
+        </div>
+      )}
 
       <motion.div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }} variants={listStagger} initial="hidden" animate="show" key={week}>
         <motion.div className="card" variants={itemRise}>

@@ -2202,3 +2202,44 @@ html[data-motion='reduced'] {
 .more-item .faint {
   font-size: 13px;
 }
+
+/* ---------- v2: insights ---------- */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--s5);
+}
+.heat {
+  display: grid;
+  grid-template-columns: 34px repeat(24, minmax(8px, 1fr));
+  gap: 2px;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+.heat-h {
+  text-align: left;
+}
+.heat-d {
+  align-self: center;
+}
+.heat-c {
+  aspect-ratio: 1;
+  min-height: 10px;
+  border-radius: 2px;
+  background: var(--surface-2);
+}
+.coach-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+.coach-grade {
+  font-family: var(--font-mono);
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 48px;
+  text-align: center;
+}
