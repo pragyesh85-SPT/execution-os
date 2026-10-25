@@ -336,6 +336,7 @@ export interface Settings extends Synced {
   startedOn?: string; // first tracked day; stats ignore days before it
   features?: Partial<Record<FeatureKey, boolean>>; // v2 feature flags (Settings → Labs)
   coachStrictness?: 'gentle' | 'direct' | 'drill'; // v2: changes the coach's wording only
+  joinDomains?: string[]; // v2: extra meeting domains allowed for one-tap Join (on top of the built-in list)
 }
 
 export interface Doc {

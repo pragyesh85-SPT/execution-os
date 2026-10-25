@@ -10,6 +10,8 @@ import { isAndroid } from './platform';
 
 const BLOCK_RANGE = [1000, 1999] as const;
 const WAKE_RANGE = [2000, 2099] as const;
+const JOIN_RANGE = [3000, 3999] as const; // reminders before classes with a Join link
+const ADHOC_BASE = 5000; // one-off notifications
 let channelsReady = false;
 
 export async function notificationPermission(): Promise<'granted' | 'denied' | 'default'> {
@@ -43,6 +45,7 @@ async function ensureChannels() {
     vibration: true,
     sound: 'eos_bell.wav',
   });
+  await LocalNotifications.registerActionTypes({ types: [{ id: 'eos-join', actions: [{ id: 'join', title: 'Join' }] }] });
   await LocalNotifications.createChannel({
     id: 'eos-blocks',
     name: 'Block changes',
@@ -54,17 +57,24 @@ async function ensureChannels() {
   channelsReady = true;
 }
 
-export async function notify(title: string, body: string) {
+export async function notify(title: string, body: string, opts: { onClick?: () => void } = {}) {
   try {
     if (isAndroid) {
       await ensureChannels();
       await LocalNotifications.schedule({
-        notifications: [{ id: 3000 + Math.floor(Math.random() * 900), title, body, channelId: 'eos-blocks' }],
+        notifications: [{ id: ADHOC_BASE + Math.floor(Math.random() * 900), title, body, channelId: 'eos-blocks' }],
       });
       return;
     }
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: './icon-192.png', tag: 'eos-' + title });
+      const n = new Notification(title, { body, icon: './icon-192.png', tag: 'eos-' + title });
+      if (opts.onClick) {
+        n.onclick = () => {
+          window.focus();
+          opts.onClick!();
+          n.close();
+        };
+      }
     }
   } catch {
     /* notifications are best-effort */
@@ -105,7 +115,7 @@ async function doSchedule(doc: Doc) {
     if (perm.display !== 'granted') return;
     await ensureChannels();
     const pending = await LocalNotifications.getPending();
-    const ours = pending.notifications.filter((n) => n.id >= BLOCK_RANGE[0] && n.id <= WAKE_RANGE[1]);
+    const ours = pending.notifications.filter((n) => n.id >= BLOCK_RANGE[0] && n.id <= JOIN_RANGE[1]);
     if (ours.length) await LocalNotifications.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
 
     const now = Date.now();
@@ -115,6 +125,7 @@ async function doSchedule(doc: Doc) {
     const list: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
     let blockId = BLOCK_RANGE[0];
     let wakeId = WAKE_RANGE[0];
+    let joinId = JOIN_RANGE[0];
 
     for (const date of [today, addDays(today, 1)]) {
       const plan = planFor(doc, date);
@@ -132,6 +143,20 @@ async function doSchedule(doc: Doc) {
             schedule: { at: new Date(at), allowWhileIdle: true },
           });
         }
+      }
+      for (const b of liveBlocks(plan)) {
+        if (!b.joinUrl || !b.reminderMin) continue;
+        const at = base + (b.s - b.reminderMin) * MIN;
+        if (at <= now + 5000 || at > horizon || joinId > JOIN_RANGE[1]) continue;
+        list.push({
+          id: joinId++,
+          title: `${b.title} in ${b.reminderMin} min`,
+          body: `Starts at ${fmtClock(clockOf(b.s, settings.dayStart))}. Tap Join to open the class.`,
+          channelId: 'eos-blocks',
+          actionTypeId: 'eos-join',
+          extra: { joinUrl: b.joinUrl },
+          schedule: { at: new Date(at), allowWhileIdle: true },
+        });
       }
       if (settings.wakeGate && !wakeVerified(doc, date)) {
         for (let k = 0; k <= 10; k++) {
@@ -153,4 +178,14 @@ async function doSchedule(doc: Doc) {
   } catch (err) {
     console.warn('Notification scheduling failed', err);
   }
+}
+
+/** Android: the Join action (or a tap) on a class reminder. */
+export function onJoinNotification(cb: (url: string) => void): () => void {
+  if (!isAndroid) return () => {};
+  const h = LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
+    const url = (e.notification.extra as { joinUrl?: string } | undefined)?.joinUrl;
+    if (url) cb(url);
+  });
+  return () => void h.then((x) => x.remove());
 }
