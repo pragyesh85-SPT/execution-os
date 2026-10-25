@@ -14,6 +14,7 @@ import { useStore } from '../state/store';
 import { successTone, unlockAudio } from '../lib/sound';
 import { SyncBadge } from '../components/SyncBadge';
 import { BlockRow, PinButton } from '../components/BlockRow';
+import { ProposalBanner } from '../overlays/ProposalSheet';
 
 export function Today() {
   const t = useToday();
@@ -39,6 +40,7 @@ export function Today() {
 
       <div className="today">
         <div className="today-col">
+          <ProposalBanner />
           <AnimatePresence initial={false}>
             {status.state !== 'on_track' && (
               <motion.div
@@ -562,9 +564,14 @@ function DayTimeline() {
     <section className="card">
       <h2 className="card-title">
         <span>Full day{plan.rescue ? ' · rescued plan' : ''}</span>
-        <button className="btn ghost sm" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Collapse' : 'Show all'}
-        </button>
+        <span className="row" style={{ gap: 4 }}>
+          <button className="btn ghost sm" onClick={() => open({ rescue: true })} title="Rebuild the rest of today around your pins and anchors">
+            <LifeBuoy size={14} /> Rebuild
+          </button>
+          <button className="btn ghost sm" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Collapse' : 'Show all'}
+          </button>
+        </span>
       </h2>
       <motion.div className="timeline" layout>
         {rows
