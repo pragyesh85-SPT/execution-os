@@ -26,6 +26,7 @@ export const startSession = (...a: Parameters<typeof ops.startSession>) => up(op
 export const stopSession = (...a: Parameters<typeof ops.stopSession>) => up(ops.stopSession(...a));
 export const saveProof = (...a: Parameters<typeof ops.saveProof>) => up(ops.saveProof(...a));
 export const clearProof = (...a: Parameters<typeof ops.clearProof>) => up(ops.clearProof(...a));
+export const logSession = (...a: Parameters<typeof ops.logSession>) => up(ops.logSession(...a));
 
 // ---------- wake ----------
 export const verifyWake = (...a: Parameters<typeof ops.verifyWake>) => up(ops.verifyWake(...a));

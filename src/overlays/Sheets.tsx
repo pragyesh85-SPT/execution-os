@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { CircleCheck, CircleDashed, CircleSlash, GitCommitHorizontal, Link2, Trash, X } from 'lucide-react';
+import { CircleCheck, CircleDashed, CircleSlash, GitCommitHorizontal, Link2, Sparkles, Trash, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CATEGORY_META } from '../core/defaults';
 import { minutesForBlock, missionFor, planFor, proofFor } from '../core/engine';
 import type { ProofStatus } from '../core/types';
 import { clockOf, dayStartMs, fmtClock, fmtDur, MIN } from '../core/time';
 import { Check, EASE, Field, Sheet, catColor } from '../components/ui';
-import { addException, addLater, attempt, deleteLater, logDistraction, saveProof, toggleLater, updateTask } from '../state/actions';
-import { useToday } from '../state/hooks';
+import { addException, addLater, attempt, deleteLater, logDistraction, logSession, toggleLater, updateTask } from '../state/actions';
+import { useFlag, useToday } from '../state/hooks';
+import { openExternal } from '../lib/platform';
 import { useStore } from '../state/store';
 import { githubProof } from '../lib/github';
 import { successTone } from '../lib/sound';
@@ -42,6 +43,10 @@ function ProofInner({ date, blockId, onClose }: { date: string; blockId: string;
   const [links, setLinks] = useState((existing?.links ?? []).join('\n'));
   const [auto, setAuto] = useState<string[]>(existing?.auto ?? []);
   const [autoState, setAutoState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [percent, setPercent] = useState(existing?.percent !== undefined ? String(existing.percent) : '50');
+  const [remaining, setRemaining] = useState(existing?.remaining ?? '');
+  const [blockers, setBlockers] = useState(existing?.blockers ?? '');
+  const mcpOn = useFlag('mcp');
   const mission = block ? missionFor(plan, block) : undefined;
   const linkedTask = mission ? Object.values(doc.tasks).find((t) => !t.del && !t.done && t.title.trim().toLowerCase() === mission.title.trim().toLowerCase()) : undefined;
   const [closeTask, setCloseTask] = useState(true);
@@ -80,22 +85,49 @@ function ProofInner({ date, blockId, onClose }: { date: string; blockId: string;
           <button className="btn ghost" onClick={onClose}>
             Later
           </button>
+          {mcpOn && (
+            <button
+              className="btn"
+              title="Copies a request for Claude and opens a new chat; Claude asks you a few questions and posts the log here."
+              onClick={async () => {
+                const text = `Log my execution for the ${fmtClock(clockOf(block.s, ds), true)} ${block.title} block in Execution OS`;
+                try {
+                  await navigator.clipboard.writeText(text);
+                  toast('Copied. Paste it into the new Claude chat.', 'success');
+                } catch {
+                  toast(text, 'info');
+                }
+                openExternal('https://claude.ai/new');
+              }}
+            >
+              <Sparkles size={14} /> Log with Claude
+            </button>
+          )}
           <button
             className="btn primary"
             disabled={!status}
             onClick={() => {
               if (!status) return;
-              saveProof(
-                date,
-                block,
-                status,
-                note.trim(),
-                links
-                  .split('\n')
-                  .map((l) => l.trim())
-                  .filter(Boolean),
-                auto,
+              const ok = attempt(() =>
+                logSession({
+                  date,
+                  blockId: block.id,
+                  status,
+                  note: note.trim(),
+                  links: links
+                    .split('\n')
+                    .map((l) => l.trim())
+                    .filter(Boolean),
+                  auto,
+                  via: 'app',
+                  confirmed: true,
+                  replace: true,
+                  ...(status === 'partial' && percent.trim() ? { percent: Number(percent) } : {}),
+                  ...(status !== 'done' && remaining.trim() ? { remaining } : {}),
+                  ...(blockers.trim() ? { blockers } : {}),
+                }),
               );
+              if (!ok) return;
               if (status === 'done' && linkedTask && closeTask) updateTask(linkedTask.id, { done: true });
               if (status === 'done') successTone();
               toast(status === 'done' ? 'Proof recorded. Block complete.' : 'Recorded honestly. The weekly review will learn from it.', status === 'done' ? 'success' : 'info');
@@ -167,6 +199,19 @@ function ProofInner({ date, blockId, onClose }: { date: string; blockId: string;
             </div>
           </div>
         )}
+        {status === 'partial' && (
+          <Field label="How much is done? (%)">
+            <input className="input mono" style={{ width: 100 }} inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+          </Field>
+        )}
+        {(status === 'partial' || status === 'none') && (
+          <Field label="What is left?" hint="Becomes an inbox task “Continue: …” so nothing disappears.">
+            <input className="input" value={remaining} onChange={(e) => setRemaining(e.target.value)} placeholder="Q4 and Q5" />
+          </Field>
+        )}
+        <Field label="Anything blocking you? (optional)">
+          <input className="input" value={blockers} onChange={(e) => setBlockers(e.target.value)} placeholder="Waiting for the dataset" />
+        </Field>
         <Field label="Note (optional)">
           <textarea className="textarea" style={{ minHeight: 70 }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Submitted Q1–Q4, Q5 needs one more hour" />
         </Field>

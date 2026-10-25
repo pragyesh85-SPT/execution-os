@@ -12,6 +12,7 @@ import type { Category, Doc, Mission, Outcome, PlanBlock, ProposedDay, RescueStr
 import { addDays, dayStartMs, MIN, offsetOf, weekKey } from '../../src/core/time';
 import type { HubDb } from '../db';
 import { writeAudit } from './audit';
+import { githubForBlock } from './github';
 import { blockView, checkDate, dayView, hhmm, InputError, overview, proposalView, taskView, timeZone, today, toOffset, weekView } from './format';
 import { PRINCIPLES, PROMPTS } from './texts';
 
@@ -283,7 +284,7 @@ export function buildServer(ctx: ToolCtx): McpServer {
       .filter((s) => s.blockId === b.id)
       .map((s) => ({ start: new Date(s.start).toTimeString().slice(0, 5), end: s.end ? new Date(s.end).toTimeString().slice(0, 5) : null, minutes: Math.round(((s.end ?? tx.now) - s.start) / MIN) }));
     const ds = tx.doc.settings.dayStart;
-    const github = ctx.githubFor ? await ctx.githubFor(tx.doc, dayStartMs(d, ds) + b.s * MIN, Math.min(tx.now, dayStartMs(d, ds) + b.e * MIN), `${d}:${b.id}`) : null;
+    const github = await (ctx.githubFor ?? githubForBlock)(tx.doc, dayStartMs(d, ds) + b.s * MIN, Math.min(tx.now, dayStartMs(d, ds) + b.e * MIN), `${d}:${b.id}`);
     const proof = proofFor(tx.doc, d, b.id);
     return {
       summary: `${b.title} ${hhmm(b.s, ds)}–${hhmm(b.e, ds)}${m ? ` · mission: ${m.title}` : ' · no mission'}${proof ? ` · logged: ${proof.status}` : ''}.`,
