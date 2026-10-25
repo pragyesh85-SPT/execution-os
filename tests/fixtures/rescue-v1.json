@@ -1,0 +1,1367 @@
+{
+ "late-wake-0630": {
+  "blocks": [
+   {
+    "id": "b-temple~missed",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 150,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1,
+    "missed": true
+   },
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 150,
+    "e": 390,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 390,
+    "e": 450,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 450,
+    "e": 480,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 480,
+    "e": 600,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 600,
+    "e": 840,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 840,
+    "e": 900,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Morning schedule was missed by 2h 30m.",
+   "Rebuilt the day from 6:30 AM. Fixed anchors stay where they are.",
+   "Devotion minimum (2h) remains protected.",
+   "Founder reduced 6h → 4h.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Rest moved out of today.",
+   "Founder / admin moved out of today."
+  ],
+  "feasible": true,
+  "from": 150,
+  "dropped": [
+   "b-rest",
+   "b-admin"
+  ],
+  "reduced": [
+   "b-founder"
+  ]
+ },
+ "wake-1300": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 480,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-founder~missed",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 480,
+    "e": 540,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "missed": true
+   },
+   {
+    "id": "r-iit-muxsf5c0",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 540,
+    "e": 660,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "r-devotion-muxsf5c0",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 660,
+    "e": 720,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 720,
+    "e": 840,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 840,
+    "e": 900,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 1:00 PM. Fixed anchors stay where they are.",
+   "Founder reduced 6h → 2h.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Devotion recovered: 1h placed back into the day.",
+   "Founder / admin moved out of today."
+  ],
+  "feasible": true,
+  "from": 540,
+  "dropped": [
+   "b-admin"
+  ],
+  "reduced": [
+   "b-founder"
+  ]
+ },
+ "overload-1455": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 480,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-founder~missed",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 480,
+    "e": 655,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "missed": true
+   },
+   {
+    "id": "r-iit-muxwj1eo",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 655,
+    "e": 775,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "r-devotion-muxwj1eo",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 775,
+    "e": 835,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 835,
+    "e": 900,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 960,
+    "e": 990,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 990,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 2:55 PM. Fixed anchors stay where they are.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Founder reduced 6h → 1h 05m.",
+   "Devotion recovered: 1h placed back into the day.",
+   "Meal reduced 1h → 30m.",
+   "Care / Workout reduced 1h → 30m.",
+   "Founder / admin moved out of today."
+  ],
+  "feasible": true,
+  "from": 655,
+  "dropped": [
+   "b-admin"
+  ],
+  "reduced": [
+   "b-founder",
+   "b-meal2",
+   "b-care"
+  ]
+ },
+ "not-started-1025": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit~missed",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 385,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "missed": true
+   },
+   {
+    "id": "r-devotion-muxmvteo",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 385,
+    "e": 445,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 445,
+    "e": 565,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 565,
+    "e": 840,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 840,
+    "e": 900,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 10:25 AM. Fixed anchors stay where they are.",
+   "Founder reduced 6h → 4h 35m.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Devotion recovered: 1h placed back into the day.",
+   "Founder / admin moved out of today."
+  ],
+  "feasible": true,
+  "from": 385,
+  "dropped": [
+   "b-admin"
+  ],
+  "reduced": [
+   "b-founder"
+  ]
+ },
+ "evening-1730": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 480,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 480,
+    "e": 780,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3
+   },
+   {
+    "id": "b-meal2~missed",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 780,
+    "e": 810,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "missed": true
+   },
+   {
+    "id": "r-iit-muy22dc0",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 810,
+    "e": 900,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "r-iit-muy22dc0~2",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 960,
+    "e": 970,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "r-devotion-muy22dc0",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 970,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 5:30 PM. Fixed anchors stay where they are.",
+   "IIT Jodhpur recovered: 1h 40m placed back into the day.",
+   "Devotion recovered: 50m placed back into the day.",
+   "Meal moved out of today.",
+   "Founder / admin moved out of today.",
+   "Daily care / workout moved out of today.",
+   "Not everything protected fits — the minimums were scaled down. Consider an earlier night."
+  ],
+  "feasible": false,
+  "from": 810,
+  "dropped": [
+   "b-meal2",
+   "b-admin",
+   "b-care"
+  ],
+  "reduced": [
+   "r-iit-muy22dc0",
+   "r-devotion-muy22dc0"
+  ]
+ },
+ "night-2030": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 480,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 480,
+    "e": 780,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 780,
+    "e": 840,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-admin",
+    "origin": "b-admin",
+    "title": "Founder / admin",
+    "category": "founder",
+    "s": 840,
+    "e": 900,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 0,
+    "priority": 4
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care~missed",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 990,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "missed": true
+   },
+   {
+    "id": "r-iit-muy8huo0",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 990,
+    "e": 1005,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "r-devotion-muy8huo0",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 1005,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 8:30 PM. Fixed anchors stay where they are.",
+   "IIT Jodhpur recovered: 15m placed back into the day.",
+   "Devotion recovered: 15m placed back into the day.",
+   "Daily care / workout moved out of today.",
+   "Not everything protected fits — the minimums were scaled down. Consider an earlier night."
+  ],
+  "feasible": false,
+  "from": 990,
+  "dropped": [
+   "b-care"
+  ],
+  "reduced": [
+   "r-iit-muy8huo0",
+   "r-devotion-muy8huo0"
+  ]
+ },
+ "early-0500": {
+  "blocks": [
+   {
+    "id": "b-temple~missed",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 60,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1,
+    "missed": true
+   },
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 60,
+    "e": 300,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 300,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 360,
+    "e": 390,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 390,
+    "e": 510,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 510,
+    "e": 810,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 810,
+    "e": 870,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-admin",
+    "origin": "b-admin",
+    "title": "Founder / admin",
+    "category": "founder",
+    "s": 870,
+    "e": 900,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 0,
+    "priority": 4,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Morning schedule was missed by 1h.",
+   "Rebuilt the day from 5:00 AM. Fixed anchors stay where they are.",
+   "Founder reduced 6h → 5h 30m.",
+   "Devotion minimum (2h) remains protected.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Rest moved out of today."
+  ],
+  "feasible": true,
+  "from": 60,
+  "dropped": [
+   "b-rest"
+  ],
+  "reduced": [
+   "b-admin"
+  ]
+ },
+ "midday-1200": {
+  "blocks": [
+   {
+    "id": "b-temple",
+    "origin": "b-temple",
+    "title": "Temple / devotion",
+    "category": "devotion",
+    "s": 0,
+    "e": 240,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "b-rest",
+    "origin": "b-rest",
+    "title": "Rest",
+    "category": "rest",
+    "s": 240,
+    "e": 270,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 0,
+    "priority": 5
+   },
+   {
+    "id": "b-meal1",
+    "origin": "b-meal1",
+    "title": "Meal",
+    "category": "meal",
+    "s": 270,
+    "e": 330,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2
+   },
+   {
+    "id": "b-plan",
+    "origin": "b-plan",
+    "title": "Buffer + daily planning",
+    "category": "buffer",
+    "s": 330,
+    "e": 360,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 10,
+    "priority": 3
+   },
+   {
+    "id": "b-iit",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — protected study",
+    "category": "iit",
+    "s": 360,
+    "e": 480,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1
+   },
+   {
+    "id": "r-iit-muxq9zk0",
+    "origin": "b-iit",
+    "title": "IIT Jodhpur — recovered",
+    "category": "iit",
+    "s": 480,
+    "e": 600,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "r-devotion-muxq9zk0",
+    "origin": "b-temple",
+    "title": "Devotion — recovered",
+    "category": "devotion",
+    "s": 600,
+    "e": 660,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1,
+    "rescued": true
+   },
+   {
+    "id": "b-founder",
+    "origin": "b-founder",
+    "title": "Founder deep work",
+    "category": "founder",
+    "s": 660,
+    "e": 840,
+    "fixed": false,
+    "focus": true,
+    "minMinutes": 120,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-meal2",
+    "origin": "b-meal2",
+    "title": "Meal",
+    "category": "meal",
+    "s": 840,
+    "e": 900,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 2,
+    "rescued": true
+   },
+   {
+    "id": "b-aarti",
+    "origin": "b-aarti",
+    "title": "Aarti / devotion",
+    "category": "devotion",
+    "s": 900,
+    "e": 960,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 60,
+    "priority": 1
+   },
+   {
+    "id": "b-care",
+    "origin": "b-care",
+    "title": "Daily care / workout",
+    "category": "care",
+    "s": 960,
+    "e": 1020,
+    "fixed": false,
+    "focus": false,
+    "minMinutes": 30,
+    "priority": 3,
+    "rescued": true
+   },
+   {
+    "id": "b-sleep",
+    "origin": "b-sleep",
+    "title": "Sleep",
+    "category": "sleep",
+    "s": 1020,
+    "e": 1440,
+    "fixed": true,
+    "focus": false,
+    "minMinutes": 420,
+    "priority": 1
+   }
+  ],
+  "summary": [
+   "Rebuilt the day from 12:00 PM. Fixed anchors stay where they are.",
+   "Founder reduced 6h → 3h.",
+   "IIT Jodhpur minimum (2h) remains protected.",
+   "Devotion recovered: 1h placed back into the day.",
+   "Founder / admin moved out of today."
+  ],
+  "feasible": true,
+  "from": 480,
+  "dropped": [
+   "b-admin"
+  ],
+  "reduced": [
+   "b-founder"
+  ]
+ }
+}
