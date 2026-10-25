@@ -6,6 +6,22 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-25
+
+### Added
+- **Cards in chat (MCP Apps).** Rescue alternatives, day and week plans and class imports appear in Claude as a small card: the before/after of each day with pins outlined, the reasons, and *Apply for today*, *Apply for the week* or *Reject*. One self-contained 7.5 KB file, no network calls; the text reply stays for apps without MCP Apps.
+- **Sign in instead of pasting a token (OAuth 2.1).** ChatGPT and other MCP clients connect with just the link: a sign-in page asks you to approve on the PC (Settings → AI connector → Connected AI apps) or with your PIN. PKCE (S256), dynamic client registration, exact redirect URIs, 1-hour access tokens bound to the connector, rotating refresh tokens (a reused one revokes the sign-in), per-app *Revoke*. Header tokens keep working.
+- **"I'm doing something else"** inside a block: *Swap* the mission (the old one returns to the inbox), *Borrow 15/30 min* (the block keeps its end time) or *Mark as drift*. Recorded, undoable, and counted weekly on Insights so swaps never become a loophole. Pinned blocks ask once more.
+- **Updates**: the installed Windows app updates itself (tray → *Restart to update*); the portable EXE and the Android app compare with the latest GitHub Release and offer the download; *Check for updates* in Settings → About works everywhere and fails gracefully offline.
+- **Signed Android releases** when a keystore is provided through `EOS_KEYSTORE*` environment variables, and a GitHub release workflow that builds the EXEs and the APK, writes `SHA256SUMS.txt` and attaches `install.ps1`.
+
+### Changed
+- Every v2 feature is now on by default and can still be switched off in Settings → Labs.
+
+### Upgrade notes
+- **Android:** a release-signed APK cannot replace the debug-signed v1.0 app. Uninstall the old app once; your data is safe on the PC and comes back after scanning the QR (Settings → Devices & sync → Scan PC).
+- **Windows:** install over v1.x; the database in `%APPDATA%\execution-os` is kept. The EXE is not code-signed, so SmartScreen may say "Windows protected your PC" → *More info* → *Run anyway*.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added

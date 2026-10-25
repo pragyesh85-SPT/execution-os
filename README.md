@@ -94,6 +94,42 @@ The reasoning behind each principle is in **[docs/PHILOSOPHY.md](docs/PHILOSOPHY
 
 ---
 
+## New in v2
+
+| | |
+|---|---|
+| **Pinned blocks + Rescue v2** | "4–5 PM is for this task" means 4–5 PM. Rescue rebuilds everything else around pins and anchors, explains every change in one sentence, offers up to three strategies (Balanced, Protect study, Ship, Light day) and can apply for today or the whole week. |
+| **Proposals** | Rescue and AI plans arrive as a reviewable proposal (banner on Now). Nothing structural changes silently; a proposal made against an older plan is re-checked first. |
+| **AI connector (MCP)** | Claude (web, desktop, mobile, Claude Code) — and ChatGPT or other MCP clients through sign-in — can read your day, plan it, rescue it, add tasks, log sessions you confirm and import classes. Every AI change is listed under **AI activity** with Undo. In Claude, proposals show as an interactive card. |
+| **One-scan pairing** | Scan one QR on the PC and the phone is set up — no address, no PIN. It switches between home Wi-Fi and Tailscale by itself. |
+| **Targets + Calendar** | Year → month → week → day targets with an honest pace, and Day / Week / Month views of what actually happened. |
+| **Insights + Coach** | Plan-versus-reality analytics and a weekly grade the AI cannot round up, with one IF → THEN change you add with one tap. |
+| **Class imports** | Classes become pinned blocks with a Join button and a reminder; re-imports never duplicate. |
+| **Setup, health, updates** | One-line Windows install, `doctor` health checks, a welcome wizard, auto-update and signed releases. |
+
+Every v2 feature can be switched off in **Settings → Labs** (nothing is deleted).
+
+### Connect Claude (once)
+
+1. Settings → **AI connector** → switch on → **Publish** (uses Tailscale Funnel; only the connector is public, behind your token — the sync hub never is).
+2. **Copy link** and **Copy token for Claude**.
+3. Claude → Settings → Connectors → *Add custom connector*: name `Execution OS`, URL = the link, request header `Authorization: Bearer <token>`. (Apps that support sign-in only need the link; approve them under *Connected AI apps*.)
+4. In a chat: "+" → Connectors → enable Execution OS; reads *Always allow*, writes *Ask*. Try "What's my current block in Execution OS?".
+5. Claude Code on this PC: `claude mcp add --transport http execution-os http://127.0.0.1:4748/mcp --header "Authorization: Bearer <token>"`.
+
+Turn it off any time from Settings or the tray (*AI connector: Off*).
+
+### If something goes wrong (rollback)
+
+| Situation | What to do |
+|---|---|
+| A new feature misbehaves | Settings → Labs → switch it off. Nothing is deleted. |
+| The AI did something unwanted | Settings → AI activity → *Undo*. To stop all AI access: tray → *AI connector: Off*. |
+| A whole release is bad | Install the previous version from GitHub Releases over it. Data stays in `%APPDATA%\execution-os`; older versions open newer databases safely. |
+| Data looks wrong after an update | Quit the app (tray → Quit), then `node build/server.cjs restore "%APPDATA%\execution-os\backups\pre-migration-….db"`. Phones re-sync. |
+| One record is wrong | Its full history is kept (`/api/history`); restore the version you want. |
+| Code rollback | Every release has a git tag (`v1.1.0` … `v2.0.0`) and every phase `pre-phase-N` / `phase-N-done`. |
+
 ## How it works
 
 ```
@@ -125,6 +161,14 @@ The reasoning behind each principle is in **[docs/PHILOSOPHY.md](docs/PHILOSOPHY
 - Windows 10/11 for the desktop app (the web hub and the UI also run on macOS/Linux)
 - For the Android app: **JDK 21** and the **Android SDK** (platform 36)
 
+### Install on Windows (one line)
+
+```powershell
+powershell -ExecutionPolicy Bypass -NoProfile -Command "irm https://raw.githubusercontent.com/pragyesh85-SPT/execution-os/main/scripts/install.ps1 | iex"
+```
+
+It downloads the latest release, verifies its SHA-256, installs it silently, offers Tailscale, and opens the welcome wizard. Developers: `npm run setup` (add `-- --service` to start the hub at logon, `-- --tailscale` for a private HTTPS address). Health: `node build/server.cjs doctor` or Settings → Health.
+
 ### Run it (web + local hub)
 
 ```bash
@@ -147,7 +191,7 @@ npm run typecheck
 
 ```bash
 npm run dist:exe   # Windows installer + portable EXE  -> release/
-npm run dist:apk   # Android APK (debug-signed, for personal installs) -> release/
+npm run dist:apk   # Android APK -> release/ (release-signed when EOS_KEYSTORE* is set, otherwise debug-signed)
 ```
 
 On Windows, `Build everything.bat` runs tests and builds both. Machine-specific settings go in `local-env.bat` (copy `local-env.example.bat`; it is git-ignored):
@@ -231,14 +275,16 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. It explains the setup and the
 
 - All data stays on your devices and your PC. There is no account, no analytics and no third-party server.
 - AI API keys are stored only on the device where you enter them and are never synced.
-- Devices other than the hub PC must send the pairing PIN. Traffic on your local network is plain HTTP. Use Tailscale (encrypted) to reach the hub from outside your home network.
+- Devices other than the hub PC must be paired (one-scan device token, revocable) or send the pairing PIN. Traffic on your local network is plain HTTP. Use Tailscale (encrypted) to reach the hub from outside your home network, or turn on the private HTTPS address.
+- The AI connector is off by default. It listens on `127.0.0.1:4748` only and reaches the internet only through Tailscale Funnel when you publish it, behind a token or an approved sign-in. It has no delete tools, validates every input, rate-limits, audits every call and offers Undo. The sync API (port 4747) is never published.
 
-## Known limits (v1)
+## Known limits
 
 - Android cannot block other apps yet (that needs an accessibility service). It nudges with notifications and Focus Mode instead.
-- The iPhone/web version loads its pages from the PC, so it needs the PC on. Offline use and push notifications on iPhone need HTTPS hosting.
+- The iPhone/web version loads its pages from the PC. With the private HTTPS address (Tailscale Serve) it can be installed and works offline; push notifications on iPhone are not supported.
+- Claude reaches the AI connector only while the PC is on and awake.
 - The default schedule, categories and labels reflect the author's own day (e.g. "IIT Jodhpur", devotion blocks). Everything is editable in the **Clock** and **Settings** screens.
-- The APK is debug-signed for personal installs. It is not a Play Store build.
+- The APK is not a Play Store build, and the Windows EXE is not code-signed (SmartScreen warns once).
 
 ## License
 

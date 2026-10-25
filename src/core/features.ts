@@ -30,8 +30,8 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   analytics: true, // shipped in v1.5.0
   coaching: true, // shipped in v1.5.0
   imports: true, // shipped in v1.5.0
-  mcpApps: false,
-  quickOverride: false,
+  mcpApps: true, // shipped in v2.0.0
+  quickOverride: true, // shipped in v2.0.0
 };
 
 export const FEATURE_INFO: Record<FeatureKey, { label: string; desc: string }> = {
