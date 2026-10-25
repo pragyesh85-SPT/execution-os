@@ -24,7 +24,7 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   rescueV2: true, // shipped in v1.1.0
   proposals: true, // shipped in v1.1.0
   mcp: true, // shipped in v1.2.0 (the connector itself stays off until switched on)
-  qrPairing: false,
+  qrPairing: true, // shipped in v1.3.0
   goals: false,
   calendar: false,
   analytics: false,

@@ -6,6 +6,18 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-25
+
+### Added
+- **One-scan pairing.** Settings → Devices & sync on the PC shows one QR. The phone camera (browser) or the Android app's *Scan PC* pairs in seconds — no address, no PIN. Paired devices are listed with *Revoke*; optional "Require approval"; PIN pairing can be turned off. Deep link `executionos://pair`.
+- **Automatic failover** between home Wi-Fi and Tailscale (same hub only, recognised by its hub id). The status pill shows the path in use.
+- **Secure address** (Tailscale Serve, private HTTPS inside your tailnet) so the browser version works offline and installs on iPhone.
+- **One-command install** for Windows (`scripts/install.ps1`, verifies SHA-256), `npm run setup` for developers (with `--service`, `--tailscale`), and `node build/server.cjs pair | doctor | connector`.
+- **Settings → Health** (same checks as `doctor`) and a 5-step **welcome wizard** that can be reopened from Settings → About.
+
+### Security
+- A loopback request forwarded by a local proxy (Tailscale Serve and similar) is no longer treated as "this PC".
+
 ## [1.2.0] - 2026-10-25
 
 ### Added
