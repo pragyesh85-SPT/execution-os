@@ -118,6 +118,8 @@ export interface SessionLog {
   countDelta?: number;
   via: 'app' | 'mcp';
   confirmed?: boolean;
+  replace?: boolean; // in-app edit: the note and links replace the old ones instead of being appended
+  auto?: string[]; // automatically detected proof (GitHub)
 }
 
 /**
@@ -133,8 +135,9 @@ export const logSession =
     if (!b) throw new OpError('no_block', `Block ${l.blockId} does not exist on ${l.date}; call get_day first.`);
     const id = `${l.date}:${b.id}`;
     const prev = d.proofs[id] && !d.proofs[id].del ? d.proofs[id] : undefined;
-    const note = [prev?.note, l.note].map((x) => x?.trim()).filter(Boolean).join('\n');
-    const links = [...new Set([...(prev?.links ?? []), ...l.links.map((x) => x.trim()).filter(Boolean)])];
+    const note = l.replace ? l.note.trim() : [prev?.note, l.note].map((x) => x?.trim()).filter(Boolean).join('\n');
+    const links = [...new Set([...(l.replace ? [] : (prev?.links ?? [])), ...l.links.map((x) => x.trim()).filter(Boolean)])];
+    const goalId = l.goalId ?? missionFor(plan, b)?.goalId;
     const pct = l.percent === undefined ? undefined : Math.max(0, Math.min(100, Math.round(l.percent)));
     d.proofs[id] = {
       ...(prev ?? {}),
@@ -146,18 +149,22 @@ export const logSession =
       status: l.status,
       note,
       links,
-      auto: prev?.auto ?? [],
+      auto: l.auto ?? prev?.auto ?? [],
       at: now,
       loggedVia: l.via,
       ...(l.confirmed ? { confirmed: true } : {}),
       ...(pct !== undefined ? { percent: pct } : {}),
       ...(l.remaining?.trim() ? { remaining: l.remaining.trim() } : {}),
       ...(l.blockers?.trim() ? { blockers: l.blockers.trim() } : {}),
-      ...(l.goalId ? { goalId: l.goalId } : {}),
+      ...(goalId ? { goalId } : {}),
       ...(l.countDelta !== undefined ? { countDelta: l.countDelta } : {}),
     };
+    if (l.replace) {
+      const rec = d.proofs[id] as unknown as Record<string, unknown>;
+      for (const k of ['percent', 'remaining', 'blockers'] as const) if (rec[k] !== undefined && (k === 'percent' ? pct === undefined : !l[k]?.trim())) delete rec[k];
+    }
     let taskId: string | undefined;
-    if (l.remaining?.trim() && l.status !== 'done') {
+    if (l.remaining?.trim() && l.status !== 'done' && l.remaining.trim() !== prev?.remaining) {
       const m = missionFor(plan, b);
       taskId = uid('t', now);
       d.tasks[taskId] = {
@@ -169,7 +176,7 @@ export const logSession =
         done: false,
         notes: l.remaining.trim().slice(0, 1000),
         createdAt: now,
-        ...(l.goalId ? { goalId: l.goalId } : {}),
+        ...(goalId ? { goalId } : {}),
       } as Task;
     }
     return { proofId: id, taskId };

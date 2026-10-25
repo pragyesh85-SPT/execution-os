@@ -167,6 +167,7 @@ export function Today() {
                 const p = proofFor(doc, date, b.id);
                 return p?.status === 'done' || minutesForBlock(doc, date, b.id, now) > (b.e - b.s) * 0.7;
               }}
+              unlogged={(b) => b.focus && !b.missed && b.e <= off && !proofFor(doc, date, b.id)}
             />
             <div className="legend">
               {(['sleep', 'devotion', 'iit', 'founder', 'meal', 'care'] as const).map((c) => (
@@ -614,6 +615,7 @@ function DayTimeline() {
                 onClick={b.focus && b.e <= off && !b.missed ? () => open({ proof: { date, blockId: b.id } }) : undefined}
                 sub={b.missed ? 'missed' : missionFor(plan, b)?.title ?? `${fmtDur(b.e - b.s)}`}
                 right={p ? (p.status === 'done' ? 'done ✓' : p.status === 'partial' ? 'partial' : 'not started') : tracked > 0 ? fmtDur(tracked) : ''}
+                dot={b.focus && !b.missed && b.e <= off && !p ? 'amber' : undefined}
               />
             );
           })}
