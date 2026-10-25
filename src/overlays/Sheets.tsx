@@ -353,6 +353,7 @@ export function GuardNudge() {
   const toast = useStore((s) => s.toast);
   const { block, plan, date, ds, off } = useToday();
   const close = () => setOpen({ guard: undefined });
+  const overrideOn = useFlag('quickOverride');
   const mission = block ? missionFor(plan, block)?.title : undefined;
   return (
     <Sheet
@@ -384,6 +385,17 @@ export function GuardNudge() {
           >
             Save it for later
           </button>
+          {overrideOn && block && (
+            <button
+              className="btn"
+              onClick={() => {
+                close();
+                setOpen({ override: { date, blockId: block.id, what: guard?.source } });
+              }}
+            >
+              I’m doing something else
+            </button>
+          )}
           <button className="btn primary" onClick={close}>
             Back to the mission
           </button>

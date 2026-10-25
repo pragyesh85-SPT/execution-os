@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeIm
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { appendFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { autoUpdater } from 'electron-updater';
 import { startHub, type Hub } from '../server/hub';
 
 // Windows desktop shell for Execution OS.
@@ -14,6 +15,9 @@ const PORT = Number(process.env.EOS_PORT ?? 4747);
 const BASE = `http://localhost:${PORT}`;
 const startHidden = process.argv.includes('--hidden');
 const firstRun = process.argv.includes('--first-run'); // passed once by scripts/install.ps1
+// The portable EXE cannot replace itself; only the installed (NSIS) app updates automatically.
+const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+let updateReady: string | null = null;
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -66,6 +70,7 @@ async function boot() {
   }
   createWindow();
   createTray();
+  setupUpdater();
   setInterval(pollFocus, 5000);
   pollFocus();
 }
@@ -179,6 +184,18 @@ function refreshTray(status: string | null) {
             .catch((e: Error) => log(`tray connector toggle failed: ${e.message}`));
         },
       },
+      ...(updateReady
+        ? [
+            {
+              label: `Restart to update (${updateReady})`,
+              click: () => {
+                quitting = true;
+                stopWatcher();
+                void (hub?.close() ?? Promise.resolve()).then(() => autoUpdater.quitAndInstall());
+              },
+            },
+          ]
+        : []),
       { type: 'separator' },
       {
         label: 'Quit',
@@ -190,6 +207,25 @@ function refreshTray(status: string | null) {
       },
     ]),
   );
+}
+
+// ---------------- auto-update (installed app only) ----------------
+
+function setupUpdater() {
+  if (!app.isPackaged || isPortable) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true; // the database lives in %APPDATA% and is kept
+  autoUpdater.logger = { info: (m: unknown) => log(`updater: ${String(m)}`), warn: (m: unknown) => log(`updater warn: ${String(m)}`), error: (m: unknown) => log(`updater error: ${String(m)}`), debug: () => {} } as never;
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReady = info.version;
+    log(`update ${info.version} downloaded`);
+    refreshTray(lastTrayStatus);
+    if (Notification.isSupported()) new Notification({ title: `Execution OS ${info.version} is ready`, body: 'It installs the next time the app restarts (tray → Restart to update).' }).show();
+  });
+  autoUpdater.on('error', (e) => log(`update check failed: ${e.message}`));
+  const check = () => void autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 60_000);
+  setInterval(check, 6 * 60 * 60_000);
 }
 
 // ---------------- focus + wake polling ----------------
@@ -346,6 +382,24 @@ ipcMain.handle('eos:hub-info', () => ({
   stats: hub?.db.stats() ?? null,
   watcher: !!watcher,
 }));
+ipcMain.handle('eos:check-updates', async () => {
+  const current = app.getVersion();
+  if (!app.isPackaged || isPortable) return { current, available: false, mode: 'download' };
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    const latest = r?.updateInfo?.version ?? current;
+    return { current, latest, available: latest !== current, mode: 'auto', ready: updateReady === latest };
+  } catch (e) {
+    return { current, available: false, mode: 'none', error: `Could not check: ${(e as Error).message}` };
+  }
+});
+ipcMain.handle('eos:install-update', () => {
+  if (!updateReady) return false;
+  quitting = true;
+  stopWatcher();
+  void (hub?.close() ?? Promise.resolve()).then(() => autoUpdater.quitAndInstall());
+  return true;
+});
 ipcMain.handle('eos:open-data-folder', () => {
   if (hub) void shell.openPath(dirname(hub.db.file));
 });

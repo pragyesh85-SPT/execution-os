@@ -378,6 +378,8 @@ export const applyProposal =
       for (const pin of plan.blocks.filter((b) => b.pinned && !b.missed)) {
         // An import may move only the class it imported earlier (same externalId).
         if (p.kind === 'import' && pin.externalId && day.blocks.some((b) => b.externalId === pin.externalId)) continue;
+        // A confirmed override may reshape only the block it was made for (the UI asks twice for a pin).
+        if (p.kind === 'override' && p.override?.blockId === pin.id) continue;
         const out = day.blocks.find((b) => b.id === pin.id);
         if (!out || out.s !== pin.s || out.e !== pin.e) throw new OpError('pin', `The proposal would move the pinned block "${pin.title}".`);
       }
@@ -387,9 +389,11 @@ export const applyProposal =
         if (!m) continue;
         const block = plan.blocks.find((b) => b.id === blockId);
         const mine = block ? missionFor(plan, block) : plan.missions[blockId];
-        if (!existing.has(blockId) || !mine || !mine.title.trim()) plan.missions[blockId] = m;
+        // A swap replaces the mission on purpose; any other proposal fills only new or empty missions.
+        if (p.kind === 'override' || !existing.has(blockId) || !mine || !mine.title.trim()) plan.missions[blockId] = m;
       }
       if (day.outcomes?.length) plan.outcomes = day.outcomes.slice(0, 3) as Outcome[];
+      if (p.kind === 'override' && p.override && day.date === p.date) plan.overrides = [...(plan.overrides ?? []), p.override].slice(-50);
       if (p.kind === 'rescue' && day.date === p.date) {
         const info = { at: now, summary: p.rescue?.summary ?? [], scope, ...(p.rescue?.strategy ? { strategy: p.rescue.strategy } : {}), ...(p.rescue?.reason ? { reason: p.rescue.reason } : {}) };
         plan.rescue = info;

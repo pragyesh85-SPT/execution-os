@@ -16,8 +16,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing reads everything from the environment (local-env.bat or CI secrets) — never from the repo.
+    // Without EOS_KEYSTORE the release build stays unsigned and scripts/build-apk.mjs builds a debug APK instead.
+    signingConfigs {
+        release {
+            def ks = System.getenv('EOS_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('EOS_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('EOS_KEY_ALIAS') ?: 'eos'
+                keyPassword System.getenv('EOS_KEY_PASSWORD') ?: System.getenv('EOS_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv('EOS_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -1,4 +1,5 @@
-// Builds the Android APK (debug-signed, for personal installs) with Gradle.
+// Builds the Android APK with Gradle: release-signed when EOS_KEYSTORE (+ EOS_KEYSTORE_PASSWORD,
+// EOS_KEY_ALIAS, EOS_KEY_PASSWORD) is set, otherwise debug-signed for personal installs.
 // Needs JDK 21 and the Android SDK. Uses JAVA_HOME / ANDROID_HOME from the environment,
 // or the EOS_* overrides below. Output: <EOS_BUILD_DIR or ./release>/ExecutionOS-<version>.apk
 import { execSync } from 'node:child_process';
@@ -19,11 +20,19 @@ if (!sdk && !existsSync(resolve('android', 'local.properties'))) {
 
 const android = resolve('android');
 const gradlew = process.platform === 'win32' ? `"${join(android, 'gradlew.bat')}"` : './gradlew';
-execSync(`${gradlew} assembleDebug --no-daemon`, { cwd: android, env, stdio: 'inherit' });
+const release = !!process.env.EOS_KEYSTORE;
+if (release && !existsSync(process.env.EOS_KEYSTORE)) {
+  console.error(`EOS_KEYSTORE points to a file that does not exist: ${process.env.EOS_KEYSTORE}`);
+  process.exit(1);
+}
+const variant = release ? 'release' : 'debug';
+console.log(release ? 'Building a release-signed APK.' : 'No EOS_KEYSTORE set: building a debug-signed APK (personal installs only).');
+execSync(`${gradlew} ${release ? 'assembleRelease' : 'assembleDebug'} --no-daemon`, { cwd: android, env, stdio: 'inherit' });
 
+const file = `app-${variant}.apk`;
 const candidates = [
-  process.env.EOS_ANDROID_BUILD_DIR && join(process.env.EOS_ANDROID_BUILD_DIR, 'app', 'outputs', 'apk', 'debug', 'app-debug.apk'),
-  join(android, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk'),
+  process.env.EOS_ANDROID_BUILD_DIR && join(process.env.EOS_ANDROID_BUILD_DIR, 'app', 'outputs', 'apk', variant, file),
+  join(android, 'app', 'build', 'outputs', 'apk', variant, file),
 ].filter(Boolean);
 const apk = candidates.find((p) => existsSync(p));
 if (!apk) throw new Error('APK not found after build');
@@ -31,6 +40,6 @@ if (!apk) throw new Error('APK not found after build');
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
 const outDir = process.env.EOS_BUILD_DIR ? join(process.env.EOS_BUILD_DIR, 'release') : resolve('release');
 mkdirSync(outDir, { recursive: true });
-const out = join(outDir, `ExecutionOS-${version}.apk`);
+const out = join(outDir, release ? `ExecutionOS-${version}.apk` : `ExecutionOS-${version}-debug.apk`);
 copyFileSync(apk, out);
 console.log(`\nAPK ready: ${out}`);

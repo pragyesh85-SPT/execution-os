@@ -58,6 +58,9 @@ export function AnalyticsSection() {
             <Tile k="Drift" v={fmtDur(a.drift.total)} sub={`${fmtDur(a.drift.lateMinutes)} late starts · ${fmtDur(a.drift.distractionMinutes)} distraction`} />
             <Tile k="Rescues" v={`${Math.round(a.rescues.perWeek * 10) / 10}/wk`} sub={reasonText(a)} />
             <Tile k="Focus quality" v={fmtDur(a.focus.avgSession)} sub={`average session · longest ${fmtDur(a.focus.longestSession)}`} />
+            {a.overrides.swap + a.overrides.borrow + a.overrides.drift > 0 && (
+              <Tile k="Something else" v={`${a.overrides.swap} swaps`} sub={`${a.overrides.borrow} borrowed detours · ${a.overrides.drift} marked as drift`} />
+            )}
           </div>
 
           <div className="stack" style={{ gap: 6 }}>

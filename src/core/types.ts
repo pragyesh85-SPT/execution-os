@@ -101,6 +101,15 @@ export interface RescueInfo {
   reason?: RescueReason; // v2: why the rescue was needed (analytics)
 }
 
+export interface OverrideEntry {
+  at: number;
+  blockId: string;
+  kind: 'swap' | 'borrow' | 'drift';
+  minutes?: number;
+  from?: string;
+  to?: string;
+}
+
 export interface DayPlan extends Synced {
   // id = logical date key YYYY-MM-DD
   blocks: PlanBlock[];
@@ -111,6 +120,7 @@ export interface DayPlan extends Synced {
   guardPausedUntil?: number; // ms
   plannedBy?: 'manual' | 'ai' | 'import';
   dismissedRescueAt?: number; // ms - user chose "not now" on a rescue suggestion
+  overrides?: OverrideEntry[]; // v2: "I'm doing something else" (swap / borrow / drift)
 }
 
 export interface Session extends Synced {
@@ -261,6 +271,7 @@ export interface Proposal extends Synced {
   rescue?: { strategy?: RescueStrategy; reason?: RescueReason; summary: string[] };
   warnings?: string[];
   supersedes?: string;
+  override?: OverrideEntry; // v2: for kind "override"
   group?: string; // alternatives offered together (e.g. three rescue strategies); applying one supersedes the rest
   appliedAt?: number;
   appliedScope?: 'today' | 'week';

@@ -34,6 +34,9 @@ module.exports = {
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true
   },
+  // Auto-update (NSIS installer only): electron-updater reads app-update.yml generated from this.
+  // Builds use --publish never; the release workflow attaches the files to the GitHub Release.
+  "publish": [{ "provider": "github", "owner": "pragyesh85-SPT", "repo": "execution-os", "releaseType": "release" }],
   "asar": true,
   "compression": "normal"
 };

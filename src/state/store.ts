@@ -56,6 +56,7 @@ export interface Overlays {
   proposals?: boolean; // v2: proposal review sheet
   pairLink?: PairPayload; // v2: the page was opened from the PC's pairing QR
   joinWarn?: { url: string; domain: string }; // v2: a Join link outside the allow-list
+  override?: { date: string; blockId: string; what?: string }; // v2: "I'm doing something else"
 }
 
 interface Store {
