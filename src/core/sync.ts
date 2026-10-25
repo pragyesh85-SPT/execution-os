@@ -229,5 +229,7 @@ export function describeRec(col: RecCol, rec: Synced | null | undefined): string
       return `Weekly review · ${rec.id}`;
     case 'distractions':
       return `Distraction · ${String(r.source ?? '')}`;
+    case 'proposals':
+      return `Proposal · ${String(r.title ?? '')}`;
   }
 }

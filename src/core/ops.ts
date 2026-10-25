@@ -513,7 +513,7 @@ export const importDoc =
 
 /** Clear tracked history but keep settings, template, rules and tasks. */
 export const clearHistory = (): Op => (d, now) => {
-  for (const key of ['days', 'sessions', 'proofs', 'wake', 'distractions', 'reviews'] as const) {
+  for (const key of ['days', 'sessions', 'proofs', 'wake', 'distractions', 'reviews', 'proposals'] as const) {
     for (const r of Object.values(d[key] as Record<string, Synced>)) {
       r.del = true;
       r.u = now;
