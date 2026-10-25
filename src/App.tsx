@@ -8,6 +8,7 @@ import { FocusMode } from './overlays/FocusMode';
 import { RescueSheet } from './overlays/RescueSheet';
 import { BlockSheet } from './overlays/BlockSheet';
 import { ProposalSheet } from './overlays/ProposalSheet';
+import { PairLinkSheet } from './screens/DevicesV2';
 import { ConflictSheet } from './overlays/ConflictSheet';
 import { GuardNudge, LaterSheet, ProofSheet, Toasts, UrgeSheet, Welcome } from './overlays/Sheets';
 import { WakeGate } from './overlays/WakeGate';
@@ -170,6 +171,7 @@ export default function App() {
       <ProofSheet />
       <BlockSheet />
       <ProposalSheet />
+      <PairLinkSheet />
       <UrgeSheet />
       <LaterSheet />
       <GuardNudge />

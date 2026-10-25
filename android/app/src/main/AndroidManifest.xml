@@ -23,6 +23,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- One-scan pairing: executionos://pair#pair=... opens the app and pairs it with the PC -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="executionos" android:host="pair" />
+            </intent-filter>
+
         </activity>
 
         <provider
