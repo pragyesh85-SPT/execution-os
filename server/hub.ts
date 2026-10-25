@@ -9,6 +9,10 @@ import type { Change } from '../src/core/sync';
 import type { Doc } from '../src/core/types';
 import { logicalDate } from '../src/core/time';
 import { HubDb } from './db';
+import { listAudit, undoAudit, lastSuccess } from './mcp/audit';
+import { createConnector, type Connector } from './mcp/connector';
+import type { GatewayOptions } from './mcp/gateway';
+import type { Tunnel } from './tunnel';
 
 // The Execution OS hub — your PC is the server and the database for every device.
 // - serves the built web app
@@ -25,6 +29,9 @@ export interface HubOptions {
   distDir: string;
   host?: string;
   log?: (msg: string) => void;
+  mcpPort?: number; // AI connector gateway (default 4748, loopback only)
+  tunnel?: Tunnel; // Tailscale control (tests inject a fake)
+  gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'>;
 }
 
 export interface Endpoint {
@@ -39,6 +46,7 @@ export interface Hub {
   getDoc: () => Doc;
   lanUrls: () => string[];
   endpoints: () => Endpoint[];
+  connector: Connector;
   close: () => Promise<void>;
 }
 
@@ -161,6 +169,10 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     if (req.method === 'OPTIONS') return void res.writeHead(204).end();
 
     if (!path.startsWith('/api/')) return serveStatic(req, res, path);
+    if (req.headers.authorization && !req.headers['x-eos-pin'] && !isLoopback(req)) {
+      // A connector token is not a sync credential: the sync API never accepts it.
+      return send(res, 401, { error: 'Pairing PIN required. Connector tokens only work on the AI connector.' });
+    }
 
     const local = isLoopback(req);
     if (path === '/api/ping') return send(res, 200, { ok: true, app: 'execution-os', version: 2, appVersion: __APP_VERSION__, needsPin: !local, rev: db.rev });
@@ -218,6 +230,45 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         if (!col || !id) return send(res, 400, { error: 'col and id required' });
         return send(res, 200, { history: db.history(col, id) });
       }
+      // ---------- AI activity (all paired devices) ----------
+      if (path === '/api/ai-activity' && req.method === 'GET') {
+        return send(res, 200, { entries: listAudit(db, 100).map(({ args, ...e }) => ({ ...e, args: args.slice(0, 300) })), last: lastSuccess(db) });
+      }
+      if (path === '/api/ai-activity/undo' && req.method === 'POST') {
+        const body = JSON.parse(await readBody(req, 4096)) as { seq?: number };
+        const r = undoAudit(db, Number(body.seq), `undo by ${device}`);
+        if (r.ok) log(`${device}: undid AI activity #${body.seq}`);
+        return send(res, r.ok ? 200 : 409, r);
+      }
+
+      // ---------- AI connector control (this PC only) ----------
+      if (path === '/api/connector') {
+        if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
+        if (req.method === 'GET') return send(res, 200, url.searchParams.get('check') ? await connector.check() : connector.status());
+        if (req.method === 'POST') {
+          const body = JSON.parse(await readBody(req, 4096)) as { action?: string; client?: string };
+          const client = String(body.client ?? 'claude').toLowerCase();
+          switch (body.action) {
+            case 'enable':
+              return send(res, 200, await connector.enable());
+            case 'disable':
+              return send(res, 200, await connector.disable());
+            case 'publish':
+              return send(res, 200, { result: await connector.publish(), status: connector.status() });
+            case 'unpublish':
+              return send(res, 200, { result: await connector.unpublish(), status: connector.status() });
+            case 'rotate':
+              // The token is returned exactly once, to this PC only. It is never stored in clear.
+              return send(res, 200, { client, token: connector.rotate(client), status: connector.status() });
+            case 'revoke':
+              connector.revoke(client);
+              return send(res, 200, connector.status());
+            default:
+              return send(res, 400, { error: 'Unknown action' });
+          }
+        }
+      }
+
       if (path === '/api/info' && req.method === 'GET') {
         if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
         return send(res, 200, {
@@ -242,6 +293,8 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
   });
 
+  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: opts.gateway });
+
   return new Promise((resolveHub, reject) => {
     server.once('error', (e) => {
       clearInterval(backupTimer);
@@ -250,6 +303,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
       reject(e);
     });
     server.listen(opts.port, opts.host ?? '0.0.0.0', () => {
+      void connector.start();
       log(`Execution OS hub on http://localhost:${opts.port} · database ${opts.dbFile}`);
       resolveHub({
         port: opts.port,
@@ -258,16 +312,17 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         getDoc: () => db.doc,
         lanUrls: () => endpoints().map((e) => e.url),
         endpoints,
-        close: () =>
-          new Promise<void>((done) => {
-            clearInterval(backupTimer);
-            clearInterval(expireTimer);
-            server.close(() => {
-              db.close();
-              done();
-            });
+        connector,
+        close: async () => {
+          clearInterval(backupTimer);
+          clearInterval(expireTimer);
+          await connector.close();
+          await new Promise<void>((done) => {
+            server.close(() => done());
             server.closeAllConnections?.();
-          }),
+          });
+          db.close();
+        },
       });
     });
   });

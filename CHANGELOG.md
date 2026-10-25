@@ -6,6 +6,13 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+### Added
+- **AI connector (self-hosted MCP server).** Settings → AI connector: one switch starts a separate listener on `127.0.0.1:4748`; *Publish* exposes only that listener through Tailscale Funnel (`https://<pc>.ts.net:8443/mcp`). Claude (web, desktop, mobile) and Claude Code can read and operate Execution OS with a per-app token (shown once, stored as a SHA-256 hash, revocable).
+- 19 tools: `get_overview`, `get_day`, `get_week`, `list_tasks`, `get_block_context`, `get_analytics`, `get_principles`, `list_proposals`, `get_playbook`, `add_tasks`, `set_mission`, `set_outcomes`, `pin_block`, `log_session` (requires the user's confirmation), `propose_day_plan`, `propose_week_plan`, `propose_rescue`, `apply_proposal`, `reject_proposal`. Resources `eos://principles`, `eos://today`, `eos://week`; prompts `plan_my_day`, `plan_my_week`, `rescue_my_day`, `log_my_execution`, `weekly_review`, `import_class_schedule`, `morning_brief`, `shutdown`.
+- **AI activity** (Settings, every device): every AI call with one-tap Undo, refused when a later edit would be overwritten.
+- Tray menu: *AI connector: On/Off* (off closes the listener and removes the Funnel).
+- Security: no delete tools, strict input schemas with size caps, 256 KB request limit, 20 s per call, 50 KB results, rate limit 60/min/IP, 15-minute lockout after 10 failed tokens, Host-header check, no CORS, the sync API refuses connector tokens.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added

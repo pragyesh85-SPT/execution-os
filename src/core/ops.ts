@@ -102,6 +102,76 @@ export const saveProof =
     d.proofs[id] = { id, u: now, date, blockId: block.id, category: block.category, status, note, links, auto, at: now };
   };
 
+export interface SessionLog {
+  date: string;
+  blockId: string;
+  status: ProofStatus;
+  note: string;
+  links: string[];
+  percent?: number;
+  remaining?: string;
+  blockers?: string;
+  goalId?: string;
+  countDelta?: number;
+  via: 'app' | 'mcp';
+  confirmed?: boolean;
+}
+
+/**
+ * Post proof of work for a block (in-app or through the AI connector). An existing proof is merged:
+ * its note is kept and the new note appended, links are unioned. Remaining work becomes an inbox task
+ * "Continue: <mission>" with the same area and goal.
+ */
+export const logSession =
+  (l: SessionLog): Op<{ proofId: string; taskId?: string }> =>
+  (d, now) => {
+    const plan = planFor(d, l.date);
+    const b = plan.blocks.find((x) => x.id === l.blockId && !x.missed);
+    if (!b) throw new OpError('no_block', `Block ${l.blockId} does not exist on ${l.date}; call get_day first.`);
+    const id = `${l.date}:${b.id}`;
+    const prev = d.proofs[id] && !d.proofs[id].del ? d.proofs[id] : undefined;
+    const note = [prev?.note, l.note].map((x) => x?.trim()).filter(Boolean).join('\n');
+    const links = [...new Set([...(prev?.links ?? []), ...l.links.map((x) => x.trim()).filter(Boolean)])];
+    const pct = l.percent === undefined ? undefined : Math.max(0, Math.min(100, Math.round(l.percent)));
+    d.proofs[id] = {
+      ...(prev ?? {}),
+      id,
+      u: now,
+      date: l.date,
+      blockId: b.id,
+      category: b.category,
+      status: l.status,
+      note,
+      links,
+      auto: prev?.auto ?? [],
+      at: now,
+      loggedVia: l.via,
+      ...(l.confirmed ? { confirmed: true } : {}),
+      ...(pct !== undefined ? { percent: pct } : {}),
+      ...(l.remaining?.trim() ? { remaining: l.remaining.trim() } : {}),
+      ...(l.blockers?.trim() ? { blockers: l.blockers.trim() } : {}),
+      ...(l.goalId ? { goalId: l.goalId } : {}),
+      ...(l.countDelta !== undefined ? { countDelta: l.countDelta } : {}),
+    };
+    let taskId: string | undefined;
+    if (l.remaining?.trim() && l.status !== 'done') {
+      const m = missionFor(plan, b);
+      taskId = uid('t', now);
+      d.tasks[taskId] = {
+        id: taskId,
+        u: now,
+        title: `Continue: ${m?.title ?? b.title}`.slice(0, 200),
+        area: areaOf(b.category),
+        priority: 2,
+        done: false,
+        notes: l.remaining.trim().slice(0, 1000),
+        createdAt: now,
+        ...(l.goalId ? { goalId: l.goalId } : {}),
+      } as Task;
+    }
+    return { proofId: id, taskId };
+  };
+
 export const clearProof =
   (date: string, blockId: string): Op =>
   (d, now) => {

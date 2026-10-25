@@ -205,6 +205,13 @@ export async function startSync() {
   window.addEventListener('online', () => void cycle());
 }
 
+/** Call the hub API (same origin on the PC, the paired address on other devices) with this device's credentials. */
+export function hubRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  const base = hubBase();
+  if (base === null) return Promise.reject(new Error('Not connected to the PC hub.'));
+  return fetch(`${base}/api/${path}`, { cache: 'no-store', ...init, headers: { ...headers(), ...((init.headers as Record<string, string>) ?? {}) } });
+}
+
 export function syncNow() {
   void cycle();
 }
