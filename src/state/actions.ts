@@ -2,6 +2,7 @@ import { normalizeDoc } from '../core/merge';
 import * as ops from '../core/ops';
 import * as proposals from '../core/proposals';
 import * as goals from '../core/goals';
+import * as coach from '../core/coach';
 import type { Op } from '../core/ops';
 import type { Doc } from '../core/types';
 import { logicalDate } from '../core/time';
@@ -56,6 +57,9 @@ export const upsertGoal = (...a: Parameters<typeof goals.upsertGoal>) => up(goal
 export const checkinGoal = (...a: Parameters<typeof goals.checkinGoal>) => up(goals.checkinGoal(...a));
 export const setGoalStatus = (...a: Parameters<typeof goals.setGoalStatus>) => up(goals.setGoalStatus(...a));
 export const toggleMilestone = (...a: Parameters<typeof goals.toggleMilestone>) => up(goals.toggleMilestone(...a));
+
+// ---------- coaching ----------
+export const postCoachingNote = (...a: Parameters<typeof coach.postCoachingNote>) => up(coach.postCoachingNote(...a));
 
 // ---------- proposals ----------
 export const addProposal = (...a: Parameters<typeof proposals.addProposal>) => up(proposals.addProposal(...a));

@@ -295,6 +295,24 @@ export interface Goal extends Synced {
   curve?: 'linear' | 'workdays'; // expected progress: every day, or Monday–Saturday only
 }
 
+// ---------- v2: coaching ----------
+
+export interface CoachingNote extends Synced {
+  // id = `${weekKey}:${n}`
+  period: string; // week key
+  grade: string; // A..F or "Not enough data" — always from the engine
+  score: number;
+  profile: string;
+  evidence: string[]; // exactly 3 numeric facts
+  wentWell?: string;
+  leak: string;
+  change: { cue: string; trigger?: RuleTrigger; action?: RuleAction }; // one-tap "Add rule"
+  text?: string; // AI narrative, ≤ 120 words
+  source: 'engine' | 'mcp';
+  client?: string;
+  createdAt: number;
+}
+
 export interface Settings extends Synced {
   name: string;
   dayStart: number; // clock minute the logical day starts (default = sleep end)
@@ -317,6 +335,7 @@ export interface Settings extends Synced {
   onboarded: boolean;
   startedOn?: string; // first tracked day; stats ignore days before it
   features?: Partial<Record<FeatureKey, boolean>>; // v2 feature flags (Settings → Labs)
+  coachStrictness?: 'gentle' | 'direct' | 'drill'; // v2: changes the coach's wording only
 }
 
 export interface Doc {
@@ -333,6 +352,7 @@ export interface Doc {
   reviews: Record<string, Review>;
   proposals: Record<string, Proposal>; // v2
   goals: Record<string, Goal>; // v2
+  coaching: Record<string, CoachingNote>; // v2
 }
 
 export type CollectionKey =
@@ -346,7 +366,8 @@ export type CollectionKey =
   | 'later'
   | 'reviews'
   | 'proposals'
-  | 'goals';
+  | 'goals'
+  | 'coaching';
 
 export const COLLECTIONS: CollectionKey[] = [
   'days',
@@ -360,6 +381,7 @@ export const COLLECTIONS: CollectionKey[] = [
   'reviews',
   'proposals',
   'goals',
+  'coaching',
 ];
 
 export type DayState = 'on_track' | 'drifting' | 'rescue';
