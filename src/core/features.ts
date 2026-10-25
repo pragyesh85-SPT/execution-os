@@ -20,9 +20,9 @@ export type FeatureKey =
 
 /** Default for settings records that never set the flag. A feature defaults on once its release has shipped. */
 export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
-  pins: false,
-  rescueV2: false,
-  proposals: false,
+  pins: true, // shipped in v1.1.0
+  rescueV2: true, // shipped in v1.1.0
+  proposals: true, // shipped in v1.1.0
   mcp: false,
   qrPairing: false,
   goals: false,
