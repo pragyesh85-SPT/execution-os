@@ -33,7 +33,12 @@ export interface DraftBlock {
   fixed?: boolean;
   missed?: boolean;
   source?: PlanBlock['source'];
-  [k: string]: unknown;
+  origin?: string;
+  joinUrl?: string;
+  location?: string;
+  externalId?: string;
+  reminderMin?: number;
+  goalId?: string;
 }
 
 function buffer(s: number, e: number): PlanBlock {
@@ -74,7 +79,11 @@ export function validateDayBlocks(doc: Doc, date: string, proposed: DraftBlock[]
     if (s < from) s = from;
     // Anchors come back from the master clock, wherever the proposal put them.
     if (raw.id && anchorKeys.has(raw.id)) continue;
-    if ((raw.category === 'sleep' || raw.category === 'devotion') && anchors.some((a) => a.category === raw.category && a.s < e && a.e > s)) continue;
+    const sameAnchor = anchors.find((a) => (raw.category === 'sleep' || raw.category === 'devotion') && a.category === raw.category && a.s < e && a.e > s);
+    if (sameAnchor) {
+      if (sameAnchor.s !== s || sameAnchor.e !== e) warnings.push(`"${sameAnchor.title}" stays at ${clock(sameAnchor.s)}–${clock(sameAnchor.e)} — anchors are fixed and were restored.`);
+      continue;
+    }
     const existingPin = raw.id ? pinById.get(raw.id) : undefined;
     if (existingPin && (existingPin.s !== s || existingPin.e !== e)) {
       errors.push(`"${existingPin.title}" is pinned at ${clock(existingPin.s)}–${clock(existingPin.e)}; a proposal cannot move it.`);
@@ -96,6 +105,7 @@ export function validateDayBlocks(doc: Doc, date: string, proposed: DraftBlock[]
       priority: raw.pinned ? 1 : (prev?.priority ?? def?.priority ?? 3),
       ...(raw.pinned ? { pinned: true } : {}),
       ...(raw.source ? { source: raw.source } : prev?.source ? { source: prev.source } : {}),
+      ...(typeof raw.origin === 'string' ? { origin: raw.origin } : {}),
     };
     for (const k of ['joinUrl', 'location', 'externalId', 'reminderMin', 'goalId'] as const) if (raw[k] !== undefined) (block as unknown as Record<string, unknown>)[k] = raw[k];
     if (!raw.pinned && prev?.pinned) delete block.pinned;
@@ -272,7 +282,7 @@ export const addProposal =
   (p: Proposal): Op<string> =>
   (d, now) => {
     for (const old of pendingProposals(d)) {
-      if (old.kind === p.kind && old.date === p.date && old.id !== p.id) d.proposals[old.id] = { ...old, status: 'superseded', u: now };
+      if (old.kind === p.kind && old.date === p.date && old.id !== p.id && !(p.group && old.group === p.group)) d.proposals[old.id] = { ...old, status: 'superseded', u: now };
     }
     d.proposals[p.id] = { ...p, u: now };
     return p.id;
@@ -391,6 +401,7 @@ export const applyProposal =
       d.tasks[tid] = { priority: 2, done: false, ...t, id: tid, u: now, createdAt: now } as Task;
     }
     d.proposals[id] = { ...p, status: 'applied', appliedAt: now, appliedScope: scope, decidedBy, u: now };
+    if (p.group) for (const s of pendingProposals(d)) if (s.group === p.group && s.id !== id) d.proposals[s.id] = { ...s, status: 'superseded', u: now };
     return { dates: days.map((x) => x.date), tasks: tasks.length };
   };
 

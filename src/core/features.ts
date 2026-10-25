@@ -23,7 +23,7 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   pins: true, // shipped in v1.1.0
   rescueV2: true, // shipped in v1.1.0
   proposals: true, // shipped in v1.1.0
-  mcp: false,
+  mcp: true, // shipped in v1.2.0 (the connector itself stays off until switched on)
   qrPairing: false,
   goals: false,
   calendar: false,

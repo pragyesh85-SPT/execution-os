@@ -1960,3 +1960,33 @@ html[data-motion='reduced'] {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ---------- v2: AI connector ---------- */
+
+.token-box {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-2);
+}
+.token-box code {
+  font-size: 13px;
+  word-break: break-all;
+}
+.token-box .btn {
+  justify-self: start;
+}
+.activity-row {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.activity-row:first-child {
+  border-top: 0;
+}

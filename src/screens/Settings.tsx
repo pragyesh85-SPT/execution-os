@@ -15,12 +15,16 @@ import { exactAlarmStatus, notificationPermission, notify, openExactAlarmSetting
 import { isAndroid, isCapacitor, isElectron, native, platformLabel, type HubInfo } from '../lib/platform';
 import { startAlarm, unlockAudio } from '../lib/sound';
 import { Rules } from './Rules';
+import { ActivitySection, ConnectorSection } from './ConnectorSettings';
+import { useFlag } from '../state/hooks';
 
 const SECTIONS = [
   ['profile', 'Day & targets'],
   ['wake', 'Wake Gate'],
   ['focus', 'Focus Guard'],
   ['ai', 'AI'],
+  ['connector', 'AI connector'],
+  ['activity', 'AI activity'],
   ['devices', 'Devices & sync'],
   ['notify', 'Notifications'],
   ['integrations', 'Integrations'],
@@ -32,6 +36,7 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number][0];
 
 export function Settings() {
+  const mcp = useFlag('mcp');
   const [section, setSection] = useState<Section>(() => {
     try {
       return (localStorage.getItem('eos.settings.section') as Section) || 'profile';
@@ -57,7 +62,7 @@ export function Settings() {
       </header>
       <div className="settings-grid">
         <nav className="settings-nav" aria-label="Settings sections">
-          {SECTIONS.map(([id, label]) => (
+          {SECTIONS.filter(([id]) => mcp || (id !== 'connector' && id !== 'activity')).map(([id, label]) => (
             <button key={id} aria-current={section === id} onClick={() => go(id)}>
               {label}
             </button>
@@ -68,6 +73,8 @@ export function Settings() {
           {section === 'wake' && <WakeSection />}
           {section === 'focus' && <FocusSection />}
           {section === 'ai' && <AiSection />}
+          {section === 'connector' && mcp && <ConnectorSection />}
+          {section === 'activity' && mcp && <ActivitySection />}
           {section === 'devices' && <DevicesSection />}
           {section === 'notify' && <NotifySection />}
           {section === 'integrations' && <IntegrationsSection />}

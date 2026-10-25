@@ -141,14 +141,38 @@ function createTray() {
   refreshTray(null);
 }
 
+let lastTrayStatus: string | null = null;
+
 function refreshTray(status: string | null) {
   if (!tray) return;
+  lastTrayStatus = status;
+  const connector = hub?.connector.status();
+  const aiOn = !!connector?.enabled;
+  tray.setToolTip(`Execution OS${status ? ` · ${status}` : ''} · AI connector ${aiOn ? (connector?.publicUrl ? 'on (published)' : 'on (this PC)') : 'off'}`);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: status ?? 'Execution OS', enabled: false },
       { type: 'separator' },
       { label: 'Open Execution OS', click: showWindow },
       { label: 'Open in browser', click: () => shell.openExternal(BASE) },
+      { type: 'separator' },
+      {
+        label: `AI connector: ${aiOn ? 'On' : 'Off'}`,
+        type: 'checkbox',
+        checked: aiOn,
+        enabled: !!hub,
+        click: () => {
+          const c = hub?.connector;
+          if (!c) return;
+          // Turning it off closes the listener and removes the Tailscale Funnel immediately.
+          void (aiOn ? c.disable() : c.enable())
+            .then(() => {
+              log(`tray: AI connector ${aiOn ? 'off' : 'on'}`);
+              refreshTray(lastTrayStatus);
+            })
+            .catch((e: Error) => log(`tray connector toggle failed: ${e.message}`));
+        },
+      },
       { type: 'separator' },
       {
         label: 'Quit',

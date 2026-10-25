@@ -59,6 +59,11 @@ export interface PlanBlock {
   missed?: boolean; // ghost of a block that was missed before a rescue
   pinned?: boolean; // v2: the user locked this block to its clock time for this day (implies fixed)
   source?: BlockSource; // v2: who created the block (undefined = the master clock)
+  joinUrl?: string; // v2: class / meeting link (https only; Join shown only for allow-listed domains)
+  location?: string; // v2
+  externalId?: string; // v2: stable id from an import (e.g. email message id + date) — re-imports update, never duplicate
+  reminderMin?: number; // v2: notify this many minutes before the block
+  goalId?: string; // v2: the target this block counts toward
 }
 
 export type BlockSource = 'template' | 'user' | 'rescue' | 'ai' | 'import';
@@ -75,6 +80,7 @@ export interface Mission {
   estimate?: number; // minutes
   taskIds?: string[];
   source?: 'manual' | 'ai' | 'import';
+  goalId?: string; // v2: the target this mission counts toward
 }
 
 export interface Outcome {
@@ -127,6 +133,13 @@ export interface Proof extends Synced {
   links: string[];
   auto: string[]; // automatically detected proof, e.g. "3 commits"
   at: number;
+  percent?: number; // v2: 0..100 for partial
+  remaining?: string; // v2: what is left (becomes a task)
+  blockers?: string; // v2
+  loggedVia?: 'app' | 'mcp'; // v2
+  confirmed?: boolean; // v2: the user explicitly confirmed this log (required for MCP)
+  goalId?: string; // v2 (targets)
+  countDelta?: number; // v2: units a session completed toward a count target
 }
 
 export interface WakeRecord extends Synced {
@@ -147,6 +160,7 @@ export interface Task extends Synced {
   notes?: string;
   carried?: boolean; // moved here by Rescue Mode
   createdAt: number;
+  goalId?: string; // v2: the target this task counts toward
 }
 
 export type RuleTrigger =
@@ -247,6 +261,7 @@ export interface Proposal extends Synced {
   rescue?: { strategy?: RescueStrategy; reason?: RescueReason; summary: string[] };
   warnings?: string[];
   supersedes?: string;
+  group?: string; // alternatives offered together (e.g. three rescue strategies); applying one supersedes the rest
   appliedAt?: number;
   appliedScope?: 'today' | 'week';
   decidedBy?: string;
