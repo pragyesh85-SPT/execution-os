@@ -170,3 +170,34 @@ export function proposalView(doc: Doc, p: Proposal) {
 }
 
 export const categoryList = Object.keys(CATEGORY_META);
+
+// ---------- MCP Apps proposal card ----------
+
+export const CARD_URI = 'ui://execution-os/proposal';
+export const CARD_MIME = 'text/html;profile=mcp-app';
+
+const cardBlocks = (blocks: PlanBlock[]) =>
+  blocks.filter((b) => !b.missed && b.e > b.s).map((b) => ({ t: b.title, c: b.category, s: b.s, e: b.e, ...(b.pinned ? { p: 1 } : {}), ...(b.fixed ? { f: 1 } : {}) }));
+
+/** What the card draws: per proposal, each day's before/after blocks and the reasons. */
+export function cardFor(doc: Doc, ids: string[], headlines: Record<string, string> = {}, note?: string) {
+  const proposals = ids
+    .map((id) => doc.proposals[id])
+    .filter((p): p is Proposal => !!p && !p.del)
+    .map((p) => ({
+      id: p.id,
+      title: p.title,
+      ...(headlines[p.id] ?? p.rationale ? { headline: headlines[p.id] ?? p.rationale } : {}),
+      scopeAllowed: p.scopeAllowed,
+      dayStart: doc.settings.dayStart,
+      days: p.days.map((d) => ({
+        date: d.date,
+        label: new Date(`${d.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
+        before: cardBlocks(liveBlocks(planFor(doc, d.date))),
+        after: cardBlocks(d.blocks),
+        changes: d.lines.filter((l) => l.kind !== 'kept').map((l) => l.reason),
+      })),
+      ...(p.warnings?.length ? { warnings: p.warnings.slice(0, 6) } : {}),
+    }));
+  return { proposals, ...(note ? { note } : {}) };
+}

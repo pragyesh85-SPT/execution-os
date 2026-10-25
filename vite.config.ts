@@ -8,7 +8,7 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 export default defineConfig({
   base: './',
   plugins: [react()],
-  define: { __APP_VERSION__: JSON.stringify(version) },
+  define: { __APP_VERSION__: JSON.stringify(version), __CARD_HTML__: JSON.stringify('<!doctype html><title>card</title><div id=root></div>') },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:4747' },
