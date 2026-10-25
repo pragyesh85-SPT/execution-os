@@ -160,6 +160,20 @@ On Windows, `Build everything.bat` runs tests and builds both. Machine-specific 
 | `EOS_JAVA_HOME`, `EOS_ANDROID_HOME`, `EOS_GRADLE_HOME` | JDK 21, Android SDK and Gradle cache locations |
 | `EOS_PORT`, `EOS_DB` | Hub port (default 4747) and database file |
 
+### Backups, restore and emergency tools
+
+The hub keeps one backup per day for 14 days in `%APPDATA%\execution-os\backups`, plus labelled copies that are never rotated away (`pre-migration-*` before any database upgrade, `pre-restore-*` before any restore, `manual-*` when you ask for one).
+
+```bash
+node build/server.cjs info              # database path, records, schema version, backups, is the hub running?
+node build/server.cjs backup            # write backups/manual-<time>.db (safe while the app runs)
+node build/server.cjs restore <file.db> # replace the database with a backup (quit the app first;
+                                        # the current database is saved as backups/pre-restore-<time>.db)
+node build/server.cjs version
+```
+
+Set `EOS_DB` to point any command at another database file. A new feature that misbehaves can be switched off in **Settings → Labs** without reinstalling; nothing is deleted.
+
 ### Browser extension (Focus Guard)
 
 Chrome/Edge → `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select the `extension/` folder. It asks the hub every 30 seconds whether a focus block is active. If the hub cannot be reached, nothing is blocked (it fails open).

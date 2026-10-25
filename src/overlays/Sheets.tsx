@@ -6,7 +6,7 @@ import { minutesForBlock, missionFor, planFor, proofFor } from '../core/engine';
 import type { ProofStatus } from '../core/types';
 import { clockOf, dayStartMs, fmtClock, fmtDur, MIN, offsetOf } from '../core/time';
 import { Check, EASE, Field, Sheet, catColor } from '../components/ui';
-import { addException, addLater, deleteLater, logDistraction, pauseGuard, saveProof, toggleLater, today, updateSettings, updateTask } from '../state/actions';
+import { addException, addLater, bypassWake, deleteLater, logDistraction, pauseGuard, saveProof, toggleLater, today, updateSettings, updateTask } from '../state/actions';
 import { useToday } from '../state/hooks';
 import { useStore } from '../state/store';
 import { githubProof } from '../lib/github';
@@ -413,12 +413,7 @@ export function Welcome() {
     await requestNotifications().catch(() => false);
     updateSettings({ name: name.trim() || 'PJ', wakeGate: wake, onboarded: true, startedOn: doc.settings.startedOn ?? today() });
     // Do not ring a wake alarm for a morning that already passed before the app was installed.
-    if (wake && missedToday) {
-      useStore.getState().update((d, t) => {
-        const date = today();
-        d.wake[date] = { id: date, u: t, verifiedAt: t, method: 'bypass', lateMin: 0 };
-      });
-    }
+    if (wake && missedToday) bypassWake(today());
     setOpen({ welcome: false });
     if (goClock) setTab('clock');
   };

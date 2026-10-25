@@ -3,6 +3,7 @@ import { Bell, Download, Eye, EyeOff, FolderOpen, Printer, RefreshCw, Upload, Vo
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { randomCode } from '../core/defaults';
+import { FEATURE_INFO, FEATURE_KEYS, isOn } from '../core/features';
 import type { Settings as S } from '../core/types';
 import { fmtDur } from '../core/time';
 import { EASE, Field, Segmented, Sheet, Toggle } from '../components/ui';
@@ -25,6 +26,7 @@ const SECTIONS = [
   ['integrations', 'Integrations'],
   ['rules', 'IF → THEN rules'],
   ['data', 'Data'],
+  ['labs', 'Labs (advanced)'],
   ['about', 'About'],
 ] as const;
 type Section = (typeof SECTIONS)[number][0];
@@ -71,6 +73,7 @@ export function Settings() {
           {section === 'integrations' && <IntegrationsSection />}
           {section === 'rules' && <Rules />}
           {section === 'data' && <DataSection />}
+          {section === 'labs' && <LabsSection />}
           {section === 'about' && <AboutSection />}
         </motion.div>
       </div>
@@ -876,6 +879,25 @@ function DataSection() {
   );
 }
 
+// ---------------- labs (feature flags) ----------------
+
+function LabsSection() {
+  const [s, set] = useSettings();
+  return (
+    <section className="card">
+      <p className="muted" style={{ marginTop: 0 }}>
+        Every new feature has a switch here. Turning one off hides it and stops new changes from it — nothing already saved is deleted, so you can
+        switch it back on at any time. This is the fastest way to roll back a feature that misbehaves. Synced to every device.
+      </p>
+      {FEATURE_KEYS.map((k) => (
+        <Row key={k} name={FEATURE_INFO[k].label} desc={FEATURE_INFO[k].desc}>
+          <Toggle on={isOn(s, k)} onChange={(v) => set({ features: { ...(s.features ?? {}), [k]: v } })} label={FEATURE_INFO[k].label} />
+        </Row>
+      ))}
+    </section>
+  );
+}
+
 // ---------------- about ----------------
 
 function AboutSection() {
@@ -884,7 +906,7 @@ function AboutSection() {
       <section className="card">
         <dl className="kv">
           <dt>Version</dt>
-          <dd className="mono">1.0.0</dd>
+          <dd className="mono">{__APP_VERSION__}</dd>
           <dt>Running as</dt>
           <dd>{platformLabel}</dd>
           <dt>Principle</dt>
