@@ -100,6 +100,11 @@ export class StudyModule {
       s.db.backupIfDue();
       const d = s.checkDrift();
       if (d !== 'none') this.log(`study session: ${d}`);
+      // a test whose time ran out is submitted from its last saved answers, even if the app is closed
+      void s.exams.autoSubmitDue().then(
+        (done) => done.length && this.log(`study test auto-submitted: ${done.join(', ')}`),
+        (e: Error) => this.log(`study test auto-submit failed: ${e.message}`),
+      );
       this.pushSummary();
     } catch (e) {
       this.log(`study tick failed: ${(e as Error).message}`);

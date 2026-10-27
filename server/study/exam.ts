@@ -21,10 +21,16 @@ import { dumpYaml } from './yaml';
 
 type Status = 'built' | 'started' | 'submitted' | 'graded';
 
+type Answers = Record<string, { text?: string; image?: string; code?: string }>;
+
+/** After the time is up, the taker's app has this long to send its answers; then the hub submits the last saved ones. */
+export const GRACE_MS = 2 * 60_000;
+
 interface TestData {
-  parts: Record<string, { startedAt?: number; submittedAt?: number }>; // subject id or "all"
+  parts: Record<string, { startedAt?: number; submittedAt?: number; deadline?: number; auto?: boolean }>; // subject id or "all"
   programming: Record<string, RunResult & { marks: number }>;
   submissions: Record<string, { kind: 'text' | 'image' | 'code'; file: string; at: number }>;
+  drafts?: Record<string, Answers>; // autosaved answers per part (submitted by the hub if the app never does)
   before?: Record<string, Rung>;
   repairsBefore?: string[];
   report?: TestReport;
@@ -242,18 +248,54 @@ export class Exams {
     if (r.status === 'submitted' || r.status === 'graded') throw new StudyError('This test was already submitted.', 409);
     const part = p.subject ?? 'all';
     if (r.data.parts[part]?.submittedAt) throw new StudyError('That part was already submitted.', 409);
-    r.data.parts[part] = { ...(r.data.parts[part] ?? {}), startedAt: r.data.parts[part]?.startedAt ?? this.svc.clock() };
+    const startedAt = r.data.parts[part]?.startedAt ?? this.svc.clock();
+    const pub = this.publicPaper(paper, p.subject);
+    // the clock never restarts: re-opening the test keeps the original deadline
+    r.data.parts[part] = { ...(r.data.parts[part] ?? {}), startedAt, deadline: r.data.parts[part]?.deadline ?? startedAt + pub.durationMin * 60_000 };
+    if (r.data.parts[part].deadline! + GRACE_MS < this.svc.clock()) throw new StudyError('The time for this test is over; your saved answers were submitted.', 409);
     r.data.before ??= Object.fromEntries([...this.svc.states()].map(([k, s]) => [k, s.rung]));
     r.data.repairsBefore ??= this.svc.repairs().map((x) => x.key);
     this.save(p.id, 'started', r.data, r.status === 'built' ? 'started' : undefined);
-    const session = this.svc.start({ kind: 'test', test: p.id, label: `3-day test ${p.id}${p.subject ? ` · ${p.subject}` : ''}` });
-    return { session: session.id, focusGuard: session.focusGuard, paper: this.publicPaper(paper, p.subject) };
+    const live = this.svc.liveSession();
+    const session = live?.kind === 'test' && live.test_id === p.id ? { id: live.id, focusGuard: !!live.eos_session } : this.svc.start({ kind: 'test', test: p.id, label: `3-day test ${p.id}${p.subject ? ` · ${p.subject}` : ''}` });
+    return { session: session.id, focusGuard: session.focusGuard, paper: pub, deadline: r.data.parts[part].deadline!, now: this.svc.clock(), draft: r.data.drafts?.[part] ?? {} };
   }
 
-  async submit(p: { id: string; subject?: string; answers: Record<string, { text?: string; image?: string; code?: string }> }) {
+  /** Autosave while the test runs (the app calls this every ~20 s and before it closes). */
+  saveDraft(p: { id: string; subject?: string; answers: Answers }) {
+    const r = this.row(p.id);
+    const part = p.subject ?? 'all';
+    if (!r || r.status !== 'started' || !r.data.parts[part]?.startedAt) throw new StudyError('Start the test first.', 409);
+    if (r.data.parts[part].submittedAt) throw new StudyError('That part was already submitted.', 409);
+    if (this.svc.clock() > (r.data.parts[part].deadline ?? Infinity) + GRACE_MS) throw new StudyError('The time is up.', 409);
+    r.data.drafts = { ...(r.data.drafts ?? {}), [part]: p.answers };
+    this.save(p.id, 'started', r.data);
+    return { ok: true, savedAt: this.svc.clock() };
+  }
+
+  /** Once a minute (hub): a part whose time ran out (plus grace) is submitted from its last saved answers. */
+  async autoSubmitDue(): Promise<string[]> {
+    const done: string[] = [];
+    const now = this.svc.clock();
+    for (const row of this.svc.db.sql.prepare("SELECT id FROM tests WHERE status = 'started'").all() as { id: string }[]) {
+      const r = this.row(row.id);
+      if (!r) continue;
+      for (const [part, info] of Object.entries(r.data.parts)) {
+        if (info.submittedAt || !info.deadline || now <= info.deadline + GRACE_MS) continue;
+        await this.submit({ id: row.id, ...(part === 'all' ? {} : { subject: part }), answers: r.data.drafts?.[part] ?? {}, auto: true });
+        done.push(`${row.id}:${part}`);
+      }
+    }
+    return done;
+  }
+
+  async submit(p: { id: string; subject?: string; answers: Answers; auto?: boolean }) {
     const paper = this.paper(p.id);
     const r = this.row(p.id) ?? { status: 'built' as Status, data: blank() };
     if (r.status === 'submitted' || r.status === 'graded') throw new StudyError('This test was already submitted.', 409);
+    const info = r.data.parts[p.subject ?? 'all'];
+    if (info?.submittedAt) throw new StudyError('That part was already submitted.', 409);
+    if (!p.auto && info?.deadline && this.svc.clock() > info.deadline + GRACE_MS) throw new StudyError('The time is up — your last saved answers are being submitted.', 409);
     const items = paper.items.filter((i) => !p.subject || i.subject === p.subject);
     const dir = join(this.svc.root, 'tests', paper.id, 'submissions');
     mkdirSync(dir, { recursive: true });
@@ -283,7 +325,7 @@ export class Exams {
       }
     }
     const part = p.subject ?? 'all';
-    r.data.parts[part] = { ...(r.data.parts[part] ?? {}), submittedAt: now };
+    r.data.parts[part] = { ...(r.data.parts[part] ?? {}), submittedAt: now, ...(p.auto ? { auto: true } : {}) };
     const subjects = [...new Set(paper.items.map((i) => i.subject))];
     const complete = !!r.data.parts.all?.submittedAt || subjects.every((s) => r.data.parts[s]?.submittedAt);
     this.save(paper.id, complete ? 'submitted' : 'started', r.data, complete ? 'submitted' : undefined);

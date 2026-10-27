@@ -720,32 +720,75 @@ function TestTaking({ id, onClose }: { id: string; onClose: () => void }) {
   const toast = useStore((s) => s.toast);
   const [paper, setPaper] = useState<{ title: string; durationMin: number; items: { id: string; subject: string; kind: string; q: string; marks: number; style?: string; entry?: string; starter?: string }[] } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { text?: string; code?: string; image?: string }>>({});
-  const [startedAt] = useState(Date.now());
+  const [deadline, setDeadline] = useState(0); // in this device's clock (server deadline, corrected for clock skew)
+  const [now, setNow] = useState(Date.now());
   const [result, setResult] = useState<{ message: string; programming: { id: string; passed: number; total: number; marks: number; of: number }[] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const latest = useRef(answers);
+  latest.current = answers;
+  const submitted = useRef(false);
+  const warned = useRef(false);
+  const dirty = useRef(false);
   useEffect(() => {
-    studyCall<{ paper: NonNullable<typeof paper> }>('testStart', { id })
+    studyCall<{ paper: NonNullable<typeof paper>; deadline: number; now: number; draft: typeof answers }>('testStart', { id })
       .then((r) => {
         setPaper(r.paper);
-        setAnswers(Object.fromEntries(r.paper.items.filter((i) => i.kind === 'programming').map((i) => [i.id, { code: i.starter ?? '' }])));
+        setDeadline(r.deadline + (Date.now() - r.now));
+        const starters = Object.fromEntries(r.paper.items.filter((i) => i.kind === 'programming').map((i) => [i.id, { code: i.starter ?? '' }]));
+        setAnswers({ ...starters, ...(r.draft ?? {}) }); // a reopened test continues where it was
       })
       .catch((e: Error) => toast(e.message, 'warn'));
   }, [id, toast]);
-  const left = paper ? Math.max(0, paper.durationMin * 60_000 - (Date.now() - startedAt)) : 0;
+  const submit = useCallback(
+    async (auto = false) => {
+      if (submitted.current) return;
+      submitted.current = true;
+      setBusy(true);
+      try {
+        setResult(await studyCall('testSubmit', { id, answers: latest.current }));
+        if (auto) toast('Time is up — your answers were submitted.', 'info');
+      } catch (e) {
+        submitted.current = false;
+        toast((e as Error).message, 'warn');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [id, toast],
+  );
+  // the clock: a 1-minute warning, then submit automatically at zero
+  useEffect(() => {
+    if (!deadline || result) return;
+    const t = window.setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (!warned.current && deadline - n <= 60_000) {
+        warned.current = true;
+        toast('1 minute left — your answers will be submitted automatically.', 'warn');
+      }
+      if (n >= deadline) void submit(true);
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [deadline, result, submit, toast]);
+  // autosave every 20 s: if this device dies, the PC submits the last saved answers when the time is up
+  useEffect(() => {
+    if (!deadline || result) return;
+    const t = window.setInterval(() => {
+      if (!dirty.current || submitted.current) return;
+      dirty.current = false;
+      void studyCall('testSave', { id, answers: latest.current }).catch(() => (dirty.current = true));
+    }, 20_000);
+    return () => window.clearInterval(t);
+  }, [deadline, result, id]);
+  useEffect(() => {
+    dirty.current = true;
+  }, [answers]);
+  const left = deadline ? Math.max(0, deadline - now) : 0;
+  const clock = `${Math.floor(left / 60_000)}:${String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')}`;
   const photo = (itemId: string, file: File) => {
     const r = new FileReader();
     r.onload = () => setAnswers((a) => ({ ...a, [itemId]: { ...a[itemId], image: String(r.result) } }));
     r.readAsDataURL(file);
-  };
-  const submit = async () => {
-    setBusy(true);
-    try {
-      setResult(await studyCall('testSubmit', { id, answers }));
-    } catch (e) {
-      toast((e as Error).message, 'warn');
-    } finally {
-      setBusy(false);
-    }
   };
   if (!paper) return <div className="empty">Starting the test…</div>;
   return (
@@ -754,9 +797,14 @@ function TestTaking({ id, onClose }: { id: string; onClose: () => void }) {
         <div>
           <h1>{paper.title}</h1>
           <p>
-            {paper.durationMin} min · Focus Guard is on · about {Math.round(left / 60_000)} min left
+            {paper.durationMin} min · Focus Guard is on · answers save automatically
           </p>
         </div>
+        {!result && (
+          <span className="chip mono" style={{ fontSize: 16, height: 32, color: left <= 60_000 ? 'var(--bad)' : undefined }} aria-live="polite">
+            {clock} left
+          </span>
+        )}
         <button className="btn ghost sm" onClick={onClose}>
           Back
         </button>
