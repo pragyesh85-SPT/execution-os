@@ -80,6 +80,10 @@ export interface Segment {
   why: string; // one line: why this segment was chosen
   checkedAt?: string; // YYYY-MM-DD the link was last fetched and verified
   dead?: boolean;
+  // start/end proven by the video's own transcript or chapters (study transcript <url>); false = play the
+  // whole video and show "times not verified". Computed by the hub from the cache; never trusted from Claude.
+  timestampVerified?: boolean;
+  verifyNote?: string;
 }
 
 export interface ResourcePath {

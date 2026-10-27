@@ -289,7 +289,12 @@ function SegmentLine({ seg }: { seg: Segment }) {
       <strong>{seg.source}</strong>
       {seg.course ? ` · ${seg.course}` : ''}
       {seg.lecture ? ` · ${seg.lecture}` : ''}
-      {seg.start !== undefined && seg.end !== undefined ? ` · ${fmtTime(seg.start)}–${fmtTime(seg.end)}` : seg.pages ? ` · pages ${seg.pages}` : ''}
+      {seg.start !== undefined && seg.end !== undefined && seg.timestampVerified !== false ? ` · ${fmtTime(seg.start)}–${fmtTime(seg.end)}` : seg.pages ? ` · pages ${seg.pages}` : ''}
+      {seg.timestampVerified === false && (
+        <span className="chip" title={seg.verifyNote} style={{ marginLeft: 6, color: 'var(--warn)' }}>
+          times not verified · whole video
+        </span>
+      )}
       <br />
       <span className="faint">{seg.why}</span>
     </p>
@@ -327,7 +332,9 @@ function Player({ seg, onEnded }: { seg: Segment; onEnded: () => void }) {
         {seg.pages ? ` (pages ${seg.pages})` : ''}
       </a>
     );
-  const q = new URLSearchParams({ enablejsapi: '1', rel: '0', modestbranding: '1', origin: location.origin.startsWith('http') ? location.origin : 'https://localhost', ...(seg.start !== undefined ? { start: String(seg.start) } : {}), ...(seg.end !== undefined ? { end: String(seg.end) } : {}) });
+  // times are used only when the video's own transcript / chapters back them; otherwise the whole video plays
+  const timed = seg.timestampVerified !== false;
+  const q = new URLSearchParams({ enablejsapi: '1', rel: '0', modestbranding: '1', origin: location.origin.startsWith('http') ? location.origin : 'https://localhost', ...(timed && seg.start !== undefined ? { start: String(seg.start) } : {}), ...(timed && seg.end !== undefined ? { end: String(seg.end) } : {}) });
   return (
     <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
       <iframe

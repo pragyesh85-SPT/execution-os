@@ -520,6 +520,18 @@ export const COMMANDS: Record<string, Cmd> = {
       print(out, json, r, () => [...r.lines, ...(flags['dry-run'] ? ['', 'Dry run: nothing was registered.'] : [])].join('\n'));
     },
   },
+  transcript: {
+    usage: 'study transcript <youtube-url> [--text]',
+    help: "Fetch a YouTube video's transcript and chapters (with timestamps) into cache/transcripts/ for /curate.",
+    async run(args, { client, out, json }) {
+      const { pos, flags } = parseFlags(args);
+      if (!pos[0]) throw new CliError('Usage: study transcript <youtube-url> [--text]');
+      const r = (await (await client()).call('transcript', { url: pos[0], text: flags.text === true })) as { videoId: string; title: string; chapters: number; cues: number; language: string | null; note?: string; file: string; text?: string };
+      print(out, json, r, () =>
+        r.text ?? `${r.title} (${r.videoId}): ${r.cues} transcript line(s)${r.language ? ` [${r.language}]` : ''}, ${r.chapters} chapter(s)${r.note ? ` — ${r.note}` : ''}. Saved to ${r.file}. Read it with --text.`,
+      );
+    },
+  },
   commit: {
     usage: 'study commit "<message>"',
     help: 'Commit the vault (local git only). Every headless job ends with this.',
@@ -531,7 +543,7 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 };
 
-const BOOL_FLAGS = new Set(['move', 'quiet', 'dry-run', 'force', 'json', 'remove', 'status', 'auto']);
+const BOOL_FLAGS = new Set(['move', 'quiet', 'dry-run', 'force', 'json', 'remove', 'status', 'auto', 'text']);
 
 /** "--subject lana --week 3 --move" → flags; everything else stays positional. */
 export function parseFlags(args: string[]): { pos: string[]; flags: Record<string, string | true> } {

@@ -23,6 +23,8 @@ export function sampleVault(prefix = 'eos-study-'): { root: string; dir: string 
 export function claudeWrites(root: string) {
   const L = layout(root);
   for (const s of ['demo', 'dprob']) cpSync(join(FIXTURE, 'claude', s), L.subject(s), { recursive: true });
+  // the transcripts /curate fetched with `study transcript` (synthetic), which back the fixture's segment times
+  cpSync(join(FIXTURE, 'cache'), join(root, 'cache'), { recursive: true });
 }
 
 export const at = (y: number, mo: number, d: number, h = 10, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();

@@ -2,6 +2,7 @@
 description: Sunday — week synthesis, graph cleanup, portfolio update, pace re-plan
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **week-end** job (Sunday night) in the Study Vault. Read `STATE.md` and
 `CLAUDE.md` first.
 

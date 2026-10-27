@@ -1,0 +1,26 @@
+{
+ "videoId": "k7RM-ot2NWY",
+ "url": "https://www.youtube.com/watch?v=k7RM-ot2NWY",
+ "title": "Demo span video (SYNTHETIC TEST DATA)",
+ "duration": 600,
+ "chapters": [],
+ "transcript": [
+  {
+   "start": 0,
+   "dur": 5,
+   "text": "Synthetic line: today, linear combinations."
+  },
+  {
+   "start": 300,
+   "dur": 6,
+   "text": "Synthetic line: the span."
+  },
+  {
+   "start": 594,
+   "dur": 6,
+   "text": "Synthetic line: that is all."
+  }
+ ],
+ "language": "en",
+ "fetchedAt": "2026-10-28T00:00:00.000Z"
+}

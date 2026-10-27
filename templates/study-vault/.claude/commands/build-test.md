@@ -2,6 +2,7 @@
 description: Build the cumulative 3-day test (written + programming, split by subject)
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **build-test** job in the Study Vault. Read `STATE.md` and `CLAUDE.md`
 first; format in `docs/FORMATS.md` (`tests/<date>/paper.yaml`).
 

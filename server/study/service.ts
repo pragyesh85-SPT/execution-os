@@ -19,7 +19,8 @@ import { graphReport } from './graph';
 import { writePortfolio } from './portfolio';
 import { capture, Proposals } from './proposals';
 import { runHidden } from './labs';
-import { isVault, layout, readVaultConfig, SUBJECT_DIRS } from './vault';
+import { fetchTranscript, readCache, transcriptText, verifySegment, videoIdOf, writeCache, type Fetcher } from './transcript';
+import { isVault, layout, readVaultConfig, refreshManaged, SUBJECT_DIRS } from './vault';
 
 // StudyService — every Study OS operation, used by the hub API, the `study` CLI (directly when the hub
 // is not running) and the MCP tools. The hub is the only long-lived owner; everything else is a client.
@@ -76,6 +77,8 @@ export class StudyService {
     this.db = new StudyDb(layout(this.root).db);
     this.tutor = new Tutor(this, opts.tutor ?? noTutor);
     this.exams = new Exams(this);
+    const refreshed = refreshManaged(this.root);
+    if (refreshed.length) this.say(`study vault: updated ${refreshed.join(', ')}`);
     this.proposals = new Proposals(this);
     this.reindex();
   }
@@ -98,8 +101,30 @@ export class StudyService {
   }
 
   model(): Model {
-    if (!this.cache) this.cache = { model: loadModel(this.db, this.root) };
+    if (!this.cache) {
+      const m = loadModel(this.db, this.root);
+      // segment times count only when the video's own transcript / chapters back them (never invented)
+      for (const p of m.paths.values()) {
+        for (const seg of [...p.segments, ...p.alternates]) {
+          const id = videoIdOf(seg.url);
+          const v = id || (seg.start === undefined && seg.end === undefined) ? verifySegment(seg, id ? readCache(this.root, id) : null) : { verified: false, reason: 'times can only be checked for YouTube videos — the whole resource is used' };
+          if (v.verified !== null) {
+            seg.timestampVerified = v.verified;
+            seg.verifyNote = v.reason;
+          }
+        }
+      }
+      this.cache = { model: m };
+    }
     return this.cache.model;
+  }
+
+  /** Fetch a YouTube video's transcript and chapters into cache/transcripts/<id>.json (for /curate). */
+  async transcript(p: { url: string; text?: boolean; fetcher?: Fetcher }) {
+    const c = await fetchTranscript(p.url, p.fetcher);
+    writeCache(this.root, c);
+    this.cache = null;
+    return { videoId: c.videoId, title: c.title, duration: c.duration, chapters: c.chapters.length, cues: c.transcript?.length ?? 0, language: c.language, ...(c.error ? { note: c.error } : {}), file: `cache/transcripts/${c.videoId}.json`, ...(p.text ? { text: transcriptText(c) } : {}) };
   }
 
   private invalidate() {

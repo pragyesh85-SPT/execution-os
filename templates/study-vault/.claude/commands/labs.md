@@ -2,6 +2,7 @@
 description: Write short Python labs with hidden tests so formulas are implemented, not only memorised
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **labs** job in the Study Vault. Read `STATE.md` and `CLAUDE.md` first;
 format in `docs/FORMATS.md` (`labs/<lab-id>/lab.yaml` + `hidden_test.py`).
 

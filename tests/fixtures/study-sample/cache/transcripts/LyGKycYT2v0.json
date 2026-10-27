@@ -1,0 +1,34 @@
+{
+ "videoId": "LyGKycYT2v0",
+ "url": "https://www.youtube.com/watch?v=LyGKycYT2v0",
+ "title": "Demo dot product video (SYNTHETIC TEST DATA)",
+ "duration": 900,
+ "chapters": [
+  {
+   "start": 0,
+   "title": "Intro"
+  },
+  {
+   "start": 270,
+   "title": "Duality"
+  },
+  {
+   "start": 600,
+   "title": "Summary"
+  }
+ ],
+ "transcript": [
+  {
+   "start": 0,
+   "dur": 4,
+   "text": "Synthetic line: dot products."
+  },
+  {
+   "start": 265,
+   "dur": 5,
+   "text": "Synthetic line: and that is the projection picture."
+  }
+ ],
+ "language": "en",
+ "fetchedAt": "2026-10-28T00:00:00.000Z"
+}
