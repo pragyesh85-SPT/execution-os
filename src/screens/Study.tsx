@@ -6,6 +6,7 @@ import { RUNG_LABEL, type QueueItem, type Rung, type Segment, type SubjectProgre
 import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCall, youtubeId } from '../lib/studyApi';
 import { useStore } from '../state/store';
 import { CreateVault, StudySetup } from './StudySetup';
+import { appendSpoken, listen, speechMode, type Listening, type SpeechMode } from '../lib/speech';
 
 // The Study tab: open it, see the next video. Everything here comes from the hub on the PC; offline it
 // shows the last pack it saved (next 3 items, their checks, due reviews) and queues answers.
@@ -450,19 +451,24 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
   const toast = useStore((s) => s.toast);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
   const [res, setRes] = useState<{ pass: boolean; coverage: number; feedback: string; covered: { text: string }[]; missed: { text: string }[]; hint?: string | null; confidence: string } | null>(null);
-  const Rec = (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; continuous: boolean; interimResults: boolean; start: () => void; stop: () => void; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void } }).webkitSpeechRecognition;
+  // speech-to-text: native on the Android app, the browser's engine on the PC, otherwise typing only
+  const [mode, setMode] = useState<SpeechMode>('none');
+  const [session, setSession] = useState<Listening | null>(null);
+  const [heard, setHeard] = useState('');
+  useEffect(() => void speechMode().then(setMode), []);
   const speak = () => {
-    if (!Rec) return;
-    const r = new Rec();
-    r.lang = 'en-IN';
-    r.continuous = true;
-    r.interimResults = false;
-    r.onresult = (e) => setText((t) => `${t} ${Array.from(e.results).map((x) => x[0].transcript).join(' ')}`.trim());
-    r.onend = () => setListening(false);
-    setListening(true);
-    r.start();
+    const typedBefore = text;
+    const l = listen(mode, setHeard);
+    setSession(l);
+    setHeard('');
+    l.done
+      .then((spoken) => setText(appendSpoken(typedBefore, spoken)))
+      .catch((e: Error) => toast(e.message, 'warn'))
+      .finally(() => {
+        setSession(null);
+        setHeard('');
+      });
   };
   const check = async () => {
     setBusy(true);
@@ -484,16 +490,21 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
       <p className="muted" style={{ marginTop: 0 }}>
         The Quick Tutor checks your explanation against {keyPoints} key points Claude wrote in advance.
       </p>
-      <textarea className="textarea" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type or speak your explanation…" />
+      <textarea className="textarea" rows={5} value={session ? appendSpoken(text, heard) : text} readOnly={!!session} onChange={(e) => setText(e.target.value)} placeholder={mode === 'none' ? 'Type your explanation…' : 'Type or speak your explanation…'} />
       <div className="btn-row" style={{ marginTop: 8 }}>
-        <button className="btn primary sm" disabled={busy || text.trim().length < 20} onClick={() => void check()}>
+        <button className="btn primary sm" disabled={busy || !!session || text.trim().length < 20} onClick={() => void check()}>
           Check my explanation
         </button>
-        {Rec && (
-          <button className="btn sm" onClick={speak} disabled={listening}>
-            <Mic size={14} /> {listening ? 'Listening…' : 'Speak'}
-          </button>
-        )}
+        {mode !== 'none' &&
+          (session ? (
+            <button className="btn sm primary" onClick={() => session.stop()}>
+              <Mic size={14} /> Listening… tap to stop
+            </button>
+          ) : (
+            <button className="btn sm" onClick={speak}>
+              <Mic size={14} /> Speak
+            </button>
+          ))}
       </div>
       {res && (
         <div className="banner" data-tone={res.pass ? 'info' : 'drifting'} style={{ marginTop: 12 }}>
