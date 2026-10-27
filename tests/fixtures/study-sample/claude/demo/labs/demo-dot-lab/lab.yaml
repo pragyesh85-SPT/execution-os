@@ -1,0 +1,11 @@
+id: demo-dot-lab
+concept: demo-dot-product
+title: Implement the dot product
+entry: dot
+timeoutSec: 20
+task: |
+  Write dot(u, v) returning the dot product of two equal-length lists of numbers.
+starter: |
+  def dot(u, v):
+      ...
+hiddenTests: hidden_test.py

@@ -1,0 +1,9 @@
+concept: dprob-conditional-probability
+keyPoints:
+  - { id: k1, text: Restrict the sample space to B, keywords: [restrict, given, only b] }
+  - { id: k2, text: Divide the overlap by P(B), keywords: [divide, overlap, intersection] }
+  - { id: k3, text: P(B) must be positive, keywords: [positive, non-zero] }
+questions:
+  - { id: q1, kind: numeric, q: "P(A∩B)=0.2, P(B)=0.5. P(A|B)=?", answer: "0.4", tolerance: 0.001 }
+  - { id: q2, kind: numeric, q: "A fair die shows an even number. P(it is 6)=? (decimal)", answer: "0.3333", tolerance: 0.01 }
+  - { id: q3, kind: mcq, q: "P(A|B) is undefined when …", options: ["P(B)=0", "P(A)=0", "A and B are disjoint"], answer: "P(B)=0" }

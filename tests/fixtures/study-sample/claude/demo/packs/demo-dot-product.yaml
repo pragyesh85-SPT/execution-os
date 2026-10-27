@@ -1,0 +1,17 @@
+concept: demo-dot-product
+keyPoints:
+  - { id: k1, text: Multiply matching entries and add, keywords: [multiply, add, sum, entries, components] }
+  - { id: k2, text: The result is a scalar, keywords: [scalar, a number] }
+  - { id: k3, text: Zero dot product means perpendicular, keywords: [perpendicular, orthogonal] }
+  - { id: k4, text: Equals the product of lengths times the cosine of the angle, keywords: [cos, cosine, angle] }
+  - { id: k5, text: Measures how much one vector points along the other, keywords: [projection, along, shadow] }
+misconceptions:
+  - { id: m1, text: The dot product is a vector }
+questions:
+  - { id: q1, kind: numeric, q: "(1, 2) · (3, 4) = ?", answer: "11" }
+  - { id: q2, kind: mcq, q: "The dot product of two vectors is a …", options: [vector, scalar, matrix], answer: scalar }
+  - { id: q3, kind: numeric, q: "(1, 0) · (0, 5) = ?", answer: "0" }
+  - { id: q4, kind: short, q: What does a zero dot product tell you?, answer: The vectors are perpendicular (orthogonal)., keywords: [perpendicular, orthogonal] }
+  - { id: q5, kind: numeric, q: "(2, 2) · (2, 2) = ?", answer: "8", tolerance: 0 }
+formulas: ['u \cdot v = \sum_i u_i v_i']
+hints: [Line the vectors up entry by entry., Think of the shadow one arrow casts on the other.]

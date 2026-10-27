@@ -46,6 +46,7 @@ export function Today() {
         <div className="today-col">
           <ProposalBanner />
           <WeekTargetsLine />
+          <StudyCard />
           <AnimatePresence initial={false}>
             {status.state !== 'on_track' && (
               <motion.div
@@ -195,6 +196,45 @@ export function Today() {
 }
 
 // ---------------- this week's targets (one line) ----------------
+
+/** Study OS (flag "study"): the synced daily summary — shown offline too. */
+function StudyCard() {
+  const on = useFlag('study');
+  const s = useStore((st) => st.doc.study?.summary);
+  const setTab = useStore((st) => st.setTab);
+  const session = useStore((st) => Object.values(st.doc.sessions).find((x) => !x.del && x.end === undefined && x.source === 'study'));
+  if (!on || !s || s.del) return null;
+  const pace = s.pace === 'behind' ? `behind by ${s.behindBy}` : s.pace === 'ahead' ? 'ahead of pace' : s.pace === 'on_pace' ? 'on pace' : 'pace from day 2';
+  const due = [s.testsDue ? `3-day test due` : '', s.reviewsDue ? `${s.reviewsDue} review${s.reviewsDue > 1 ? 's' : ''}` : '', s.repairs ? `${s.repairs} repair${s.repairs > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+  return (
+    <section className="card">
+      <h2 className="card-title">
+        Study <span>{s.minutesToday} min today</span>
+      </h2>
+      {session?.label && <p style={{ margin: '0 0 6px', fontWeight: 600 }}>{session.label}</p>}
+      <p style={{ margin: 0 }}>
+        {s.next ? (
+          <>
+            Next: <strong>{s.next.concept}</strong> · {s.next.subject} · {s.next.minutes} min
+          </>
+        ) : (
+          'Nothing queued yet.'
+        )}
+      </p>
+      <p className="muted" style={{ margin: '4px 0 0', fontSize: 14 }}>
+        {Math.round(s.coverage * 100)}% covered · {pace} · ready by {s.readyBy}
+        {s.projectedReady ? ` (projected ${s.projectedReady})` : ''}
+        {due ? ` · ${due}` : ''}
+        {s.lastJobFailed ? ` · last ${s.lastJobFailed} job failed` : ''}
+      </p>
+      <div className="btn-row" style={{ marginTop: 10 }}>
+        <button className="btn sm" onClick={() => setTab('study')}>
+          Open Study
+        </button>
+      </div>
+    </section>
+  );
+}
 
 function WeekTargetsLine() {
   const on = useFlag('goals');

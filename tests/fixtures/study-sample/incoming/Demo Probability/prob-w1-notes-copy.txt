@@ -1,0 +1,3 @@
+Demo probability notes, week 1.
+Sample space, events, and the probability of an event: P(A) = |A| / |S| for equally likely outcomes.
+Conditional probability: P(A|B) = P(A ∩ B) / P(B).

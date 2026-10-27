@@ -1,0 +1,27 @@
+concept: demo-dot-product
+segments:
+  - kind: intuition
+    url: https://www.youtube.com/watch?v=LyGKycYT2v0
+    start: "0:00"
+    end: "4:30"
+    source: 3Blue1Brown
+    course: Essence of Linear Algebra
+    lecture: Chapter 9
+    why: Projection picture first; same arrow drawings as the slides.
+    checkedAt: "2026-10-28"
+  - kind: formal
+    url: https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/
+    source: MIT OCW
+    university: MIT
+    course: 18.06 Linear Algebra
+    lecture: Lecture 1
+    start: 600
+    end: 1200
+    why: Strang's row picture with the sum formula.
+    checkedAt: "2026-10-28"
+alternates:
+  - kind: example
+    url: https://www.khanacademy.org/math/linear-algebra
+    source: Khan Academy
+    why: Two worked numeric examples.
+    checkedAt: "2026-10-28"

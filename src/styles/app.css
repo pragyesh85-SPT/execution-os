@@ -2285,3 +2285,24 @@ html[data-motion='reduced'] {
 .override-choice .faint {
   font-size: 13px;
 }
+
+/* ---------- Study OS ---------- */
+
+.study-bar {
+  margin-top: 4px;
+}
+.study-bar .bar,
+.mastery-row .bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.study-bar .bar i,
+.mastery-row .bar i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  border-radius: 3px;
+}

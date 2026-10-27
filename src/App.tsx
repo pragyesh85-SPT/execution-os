@@ -1,5 +1,5 @@
 import { MotionConfig, motion } from 'motion/react';
-import { CalendarDays, ChartColumn, Clock3, Ellipsis, Gauge, ListTodo, Settings2, Split } from 'lucide-react';
+import { CalendarDays, ChartColumn, Clock3, Ellipsis, Gauge, GraduationCap, ListTodo, Settings2, Split } from 'lucide-react';
 import { useEffect } from 'react';
 import { blockAt, planFor } from './core/engine';
 import { logicalDate, offsetOf } from './core/time';
@@ -22,6 +22,7 @@ import { Settings } from './screens/Settings';
 import { Today } from './screens/Today';
 import { Calendar } from './screens/Calendar';
 import { More } from './screens/More';
+import { Study } from './screens/Study';
 import { useFlag } from './state/hooks';
 import { useNow, useRuntime } from './state/runtime';
 import { useStore, type Tab } from './state/store';
@@ -50,6 +51,11 @@ const V2_NAV: NavItem[] = [
   { id: 'settings', label: 'Settings', icon: Settings2, key: '7' },
 ];
 const V2_MOBILE: NavItem[] = [...V2_NAV.slice(0, 4), { id: 'more', label: 'More', icon: Ellipsis, key: '' }];
+
+// Study OS (flag "study"): a Study tab right after Now. On phones it takes Calendar's place (Calendar moves to More).
+const STUDY_ITEM: NavItem = { id: 'study', label: 'Study', icon: GraduationCap, key: '8' };
+const withStudy = (nav: NavItem[]) => [nav[0], STUDY_ITEM, ...nav.slice(1)];
+const STUDY_MOBILE: NavItem[] = [V2_NAV[0], STUDY_ITEM, V2_NAV[1], V2_NAV[3], { id: 'more', label: 'More', icon: Ellipsis, key: '' }];
 
 export function BrandMark() {
   return (
@@ -99,6 +105,8 @@ function Screen({ tab }: { tab: Tab }) {
       return <Calendar />;
     case 'more':
       return <More />;
+    case 'study':
+      return <Study />;
   }
 }
 
@@ -108,11 +116,19 @@ export default function App() {
   const tab = useStore((s) => s.tab);
   const setTab = useStore((s) => s.setTab);
   const calendarOn = useFlag('calendar');
-  const NAV = calendarOn ? V2_NAV : V1_NAV;
-  const MOBILE_NAV = calendarOn ? V2_MOBILE : V1_NAV.filter((n) => n.id !== 'rules');
+  const studyOn = useFlag('study');
+  const baseNav = calendarOn ? V2_NAV : V1_NAV;
+  const NAV = studyOn ? withStudy(baseNav) : baseNav;
+  const baseMobile = calendarOn ? V2_MOBILE : V1_NAV.filter((n) => n.id !== 'rules');
+  const MOBILE_NAV = studyOn ? (calendarOn ? STUDY_MOBILE : withStudy(baseMobile).slice(0, 6)) : baseMobile;
   useEffect(() => {
     if (!calendarOn && (tab === 'calendar' || tab === 'more')) setTab('now');
-  }, [calendarOn, tab, setTab]);
+    if (!studyOn && tab === 'study') setTab('now');
+  }, [calendarOn, studyOn, tab, setTab]);
+  useEffect(() => {
+    // a Study session link (#study/session/<id>) from a proof opens the Study tab
+    if (studyOn && location.hash.startsWith('#study/')) setTab('study');
+  }, [studyOn, setTab]);
   const open = useStore((s) => s.open);
   const name = useStore((s) => s.doc.settings.name);
   const motionPref = useStore((s) => s.local.motion);
@@ -182,7 +198,7 @@ export default function App() {
         <nav className="bottom-nav" aria-label="Main">
           {MOBILE_NAV.map((n) => {
             const Icon = n.icon;
-            const active = tab === n.id || (n.id === 'settings' && tab === 'rules') || (n.id === 'more' && ['clock', 'rules', 'settings'].includes(tab));
+            const active = tab === n.id || (n.id === 'settings' && tab === 'rules') || (n.id === 'more' && ['clock', 'rules', 'settings', ...(studyOn && calendarOn ? ['calendar'] : [])].includes(tab));
             return (
               <button key={n.id} aria-current={active ? 'page' : undefined} onClick={() => setTab(n.id)}>
                 {active && <motion.span layoutId="bottom-dot" className="nav-dot" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}

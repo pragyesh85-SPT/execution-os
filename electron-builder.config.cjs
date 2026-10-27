@@ -19,6 +19,10 @@ module.exports = {
     {
       "from": "extension",
       "to": "extension"
+    },
+    {
+      "from": "templates/study-vault",
+      "to": "templates/study-vault"
     }
   ],
   "win": {
@@ -38,6 +42,9 @@ module.exports = {
   // Builds use --publish never; the release workflow attaches the files to the GitHub Release.
   "publish": [{ "provider": "github", "owner": "pragyesh85-SPT", "repo": "execution-os", "releaseType": "release" }],
   "asar": true,
+  // The `study` CLI runs outside the app window (vault shims, Task Scheduler) with Execution OS.exe in
+  // Node mode, so its single-file bundle sits next to app.asar instead of inside it.
+  "asarUnpack": ["build/study.cjs"],
   "compression": "normal"
 };
 

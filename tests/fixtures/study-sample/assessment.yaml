@@ -1,0 +1,19 @@
+semester: s1
+studyStart: "2026-10-28"
+examStart: "2026-11-30"
+testEveryDays: 3
+testMinutes: 60
+subjects:
+  - id: demo
+    title: Demo Vectors and Matrices
+    examWeight: 2
+  - id: dprob
+    title: Demo Probability
+    examWeight: 1
+components:
+  - { subject: demo, name: Quiz 1, weight: 10, kind: quiz, date: "2026-11-05" }
+deadlines:
+  - { id: demo-a1, subject: demo, title: Assignment 1, kind: assignment, due: "2026-11-02", graded: true }
+  - { id: dprob-q1, subject: dprob, title: Quiz 1, kind: quiz, due: "2026-11-06", graded: false }
+endTerm:
+  format: [written, programming]

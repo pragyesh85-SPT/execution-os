@@ -1,0 +1,11 @@
+concept: demo-vectors-and-linear-combinations
+segments:
+  - kind: intuition
+    url: https://www.youtube.com/watch?v=k7RM-ot2NWY
+    start: 0
+    end: 600
+    source: 3Blue1Brown
+    course: Essence of Linear Algebra
+    lecture: Chapter 2
+    why: Span drawn as all reachable arrows.
+    checkedAt: "2026-10-28"

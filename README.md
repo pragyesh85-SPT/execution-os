@@ -7,9 +7,9 @@ Execution OS is not a calendar, an alarm app or a to-do list. It is a live clock
 
 It runs on **Windows, Android and any browser**. Your own PC acts as the server and the database. There is no cloud account, no subscription and no telemetry.
 
-> **Status:** v1.0, a working personal tool built for daily use. Expect rough edges.
+> **Status:** v2.1, a working personal tool built for daily use. Expect rough edges.
 
-**[Who it's for](#who-should-use-it) · [Why](#why-use-it-instead-of-a-calendar-a-to-do-list-or-a-timer) · [Principles](#the-principles-in-one-screen) · [Features](#what-it-does) · [How it works](#how-it-works) · [Get started](#getting-started) · [Philosophy](docs/PHILOSOPHY.md) · [Contribute](CONTRIBUTING.md)**
+**[User manual](docs/USER_MANUAL.md) · [Who it's for](#who-should-use-it) · [Why](#why-use-it-instead-of-a-calendar-a-to-do-list-or-a-timer) · [Principles](#the-principles-in-one-screen) · [Features](#what-it-does) · [How it works](#how-it-works) · [Get started](#getting-started) · [Philosophy](docs/PHILOSOPHY.md) · [Contribute](CONTRIBUTING.md)**
 
 ---
 
@@ -289,3 +289,18 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. It explains the setup and the
 ## License
 
 [MIT](LICENSE) © 2026 Pragyesh Jain
+
+---
+
+## Study OS (Labs)
+
+An optional study module, switched off by default (Settings → Labs → **Study OS**). It turns a course's
+material into a queue of short lessons from world-class open resources, instant checks graded against
+packs written in advance by Claude, Python labs with hidden tests, a cumulative test every 3 days and an
+honest pace meter — and pushes every study session into Execution OS. All study data lives in a private
+**Study Vault** folder on your PC; only a small daily summary syncs to your phone.
+
+- **User manual (Execution OS + Study OS):** [docs/USER_MANUAL.md](docs/USER_MANUAL.md)
+- Build report: [docs/study-os/BUILD_REPORT.md](docs/study-os/BUILD_REPORT.md)
+- Design: [docs/study-os/ARCHITECTURE.md](docs/study-os/ARCHITECTURE.md) · decisions: [docs/study-os/DECISIONS.md](docs/study-os/DECISIONS.md)
+- Command line: `npm run build:node`, then `npm run study -- help`

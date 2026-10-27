@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(study:*)",
+      "Bash(./study:*)",
+      "Bash(study.cmd:*)",
+      "Bash(.\\study.cmd:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": [
+      "Read(./study.db*)",
+      "Edit(./study.db*)",
+      "Write(./study.db*)",
+      "Read(./.backups/**)",
+      "Edit(./.backups/**)",
+      "Write(./.backups/**)",
+      "Edit(./semesters/*/subjects/*/assets/**)",
+      "Write(./semesters/*/subjects/*/assets/**)",
+      "Bash(git push:*)",
+      "Bash(git remote:*)",
+      "Bash(rm -rf:*)"
+    ]
+  }
+}

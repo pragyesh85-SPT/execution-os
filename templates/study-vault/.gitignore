@@ -1,0 +1,14 @@
+# Study Vault — this git repository stays on this PC (a pre-push hook blocks pushes).
+# Never committed even here: the database, its backups, raw IITJ originals, logs, local shims.
+study.db
+study.db-*
+.backups/
+logs/
+semesters/*/subjects/*/assets/
+inbox/*
+!inbox/.gitkeep
+tests/*/submissions/
+study.cmd
+/study
+.env
+*.key

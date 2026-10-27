@@ -16,6 +16,7 @@ import type { GatewayOptions } from './mcp/gateway';
 import { tailscale, type Tunnel } from './tunnel';
 import { Devices, pairUrl, type PairPayload } from './devices';
 import { orderUrls } from '../src/lib/pairing';
+import { StudyModule, type StudyModuleOptions } from './study/module';
 
 // The Execution OS hub — your PC is the server and the database for every device.
 // - serves the built web app
@@ -37,6 +38,7 @@ export interface HubOptions {
   oauthAccessTtlMs?: number; // OAuth access token lifetime (default 1 hour; tests shorten it)
   tunnel?: Tunnel; // Tailscale control (tests inject a fake)
   gateway?: Omit<GatewayOptions, 'db' | 'port' | 'publicHost' | 'log'>;
+  study?: Omit<StudyModuleOptions, 'hubDb' | 'log'>; // Study OS (flag "study"); tests pass a temporary vault
 }
 
 export interface Endpoint {
@@ -53,6 +55,7 @@ export interface Hub {
   endpoints: () => Endpoint[];
   connector: Connector;
   devices: Devices;
+  study: StudyModule;
   close: () => Promise<void>;
 }
 
@@ -134,6 +137,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
   }, 10 * 60 * 1000);
 
   const devices = new Devices(db, { ttlMs: opts.pairTtlMs });
+  const study = new StudyModule({ port: opts.port, ...(opts.study ?? {}), hubDb: db, log });
   const pairedRecently: { name: string; at: number }[] = [];
   const tunnel = opts.tunnel ?? tailscale;
   let serveUrl: string | null = null;
@@ -353,6 +357,9 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         }
       }
 
+      // ---------- Study OS (flag "study"; 404 while it is off) ----------
+      if (path.startsWith('/api/study/')) return await study.handle(req, res, url, { local, device }, readBody, send);
+
       if (path === '/api/health' && req.method === 'GET') {
         if (!local) return send(res, 403, { error: 'Only available on the hub PC' });
         const checks = await runDoctor({ dbFile: db.file, port: opts.port, tunnel, connector: connector.status(), devices: devices.list() });
@@ -399,12 +406,13 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
   });
 
-  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: opts.gateway, oauthAccessTtlMs: opts.oauthAccessTtlMs });
+  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: { ...(opts.gateway ?? {}), ctx: { ...(opts.gateway?.ctx ?? {}), study: () => study.service() } }, oauthAccessTtlMs: opts.oauthAccessTtlMs });
 
   return new Promise((resolveHub, reject) => {
     server.once('error', (e) => {
       clearInterval(backupTimer);
       clearInterval(expireTimer);
+      study.close();
       db.close();
       reject(e);
     });
@@ -420,9 +428,11 @@ export function startHub(opts: HubOptions): Promise<Hub> {
         endpoints,
         connector,
         devices,
+        study,
         close: async () => {
           clearInterval(backupTimer);
           clearInterval(expireTimer);
+          study.close();
           await connector.close();
           await new Promise<void>((done) => {
             server.close(() => done());

@@ -6,6 +6,10 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+### Added
+
+- Study OS (behind the `study` flag in Labs): Study Vault and `study` CLI, ingestion, learning engine (ladder, mastery, FSRS reviews, repairs, pace), Quick Tutor, Python labs, the 3-day test, headless Claude jobs and Task Scheduler script, Study tab, Today Study card, MCP study tools, portfolio. Off by default; nothing changes while it is off.
+
 ## [2.0.0] - 2026-10-25
 
 ### Added
