@@ -1,5 +1,10 @@
 # Study OS — build report
 
+> **Update, v2.1.0 (Oct 28):** Study OS is merged into `main` and ships in the Windows app and the APK.
+> Everything below can now be done from the app: **Study → Create my Study Vault**, then **Study setup
+> (this PC)** for assets, the Quick Tutor and the scheduled jobs (gaps 1, 2 and 5 below are closed).
+> The step-by-step guide for users is [docs/USER_MANUAL.md](../USER_MANUAL.md), sections 5–6.
+
 Built overnight, Oct 27–28 2026, on branch `feature/study-os` (from `main` at `b9efe68`, tag `pre-study-os`).
 Nothing was merged into `main` and no release was created. The concept in `ARCHITECTURE.md` was followed
 as written; every gap the document left open is listed in `DECISIONS.md` (D-01 … D-39).
@@ -49,16 +54,16 @@ All 39 are in `DECISIONS.md` with the reason for each. The ones you are most lik
 
 ## Known gaps
 
-1. **The installed app does not have Study OS yet.** `E:\Execution OS` (v2.0.0 EXE) and the phone APK were
+1. ~~**The installed app does not have Study OS yet.**~~ *Closed in v2.1.0.* `E:\Execution OS` (v2.0.0 EXE) and the phone APK were
    not rebuilt — no release was made. Until you merge and release, run the hub from this repo (steps below);
    phones use the Study tab through the browser at the PC address.
-2. The `study` CLI runs from the repo checkout (`build/study.cjs`); it is not bundled into the EXE.
+2. ~~The `study` CLI runs from the repo checkout.~~ *Closed in v2.1.0: it is unpacked next to the app and the vault's `study.cmd` uses it.*
 3. PDFs: the engine extracts text only when `pdftotext` (Poppler) is installed; otherwise every PDF is
    flagged and Claude reads it during `/ingest` (Claude Code reads PDFs natively). Scans and images always
    need Claude.
 4. The job command files were exercised with a fake `claude`, not with real Claude runs — the first real
    `/ingest` should be watched once (step 8 below).
-5. Tutor provider settings are CLI-only (`study tutor set …`); there is no settings form in the Study tab.
+5. ~~Tutor provider settings are CLI-only.~~ *Closed in v2.1.0: Study → Study setup → Quick Tutor provider.*
 6. Task Scheduler runs jobs only while you are signed in to Windows and the PC is on (no stored password).
 7. The concept graph in the Study tab is a list of chips per subject, not a drawn graph.
 8. Offline answers are checked when they reach the PC, so their evidence carries the sync time.
