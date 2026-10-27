@@ -19,6 +19,7 @@ import { graphReport } from './graph';
 import { writePortfolio } from './portfolio';
 import { capture, Proposals } from './proposals';
 import { runHidden } from './labs';
+import { checkFrame, type HeadFetcher } from './frames';
 import { fetchTranscript, readCache, transcriptText, verifySegment, videoIdOf, writeCache, type Fetcher } from './transcript';
 import { isVault, layout, readVaultConfig, refreshManaged, SUBJECT_DIRS } from './vault';
 
@@ -117,6 +118,13 @@ export class StudyService {
       this.cache = { model: m };
     }
     return this.cache.model;
+  }
+
+  /** Can this resource be shown inside the Study tab? Only for links that are in the vault's paths. */
+  async frameCheck(p: { url: string; fetcher?: HeadFetcher }) {
+    const known = [...this.model().paths.values()].some((path) => [...path.segments, ...path.alternates].some((s) => s.url === p.url));
+    if (!known) throw new StudyError('Only resources from your study paths can be checked.', 403);
+    return checkFrame(p.url, p.fetcher);
   }
 
   /** Fetch a YouTube video's transcript and chapters into cache/transcripts/<id>.json (for /curate). */

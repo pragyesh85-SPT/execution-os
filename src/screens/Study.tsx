@@ -5,6 +5,7 @@ import { fmtTime } from '../core/study/ids';
 import { RUNG_LABEL, type QueueItem, type Rung, type Segment, type SubjectProgress } from '../core/study/types';
 import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCall, youtubeId } from '../lib/studyApi';
 import { useStore } from '../state/store';
+import { isCapacitor } from '../lib/platform';
 import { CreateVault, StudySetup } from './StudySetup';
 import { appendSpoken, listen, speechMode, type Listening, type SpeechMode } from '../lib/speech';
 
@@ -326,13 +327,7 @@ function Player({ seg, onEnded }: { seg: Segment; onEnded: () => void }) {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [id, onEnded]);
-  if (!id)
-    return (
-      <a className="btn" href={seg.url} target="_blank" rel="noreferrer">
-        <ExternalLink size={14} /> Open {seg.source}
-        {seg.pages ? ` (pages ${seg.pages})` : ''}
-      </a>
-    );
+  if (!id) return <Reader seg={seg} />;
   // times are used only when the video's own transcript / chapters back them; otherwise the whole video plays
   const timed = seg.timestampVerified !== false;
   const q = new URLSearchParams({ enablejsapi: '1', rel: '0', modestbranding: '1', origin: location.origin.startsWith('http') ? location.origin : 'https://localhost', ...(timed && seg.start !== undefined ? { start: String(seg.start) } : {}), ...(timed && seg.end !== undefined ? { end: String(seg.end) } : {}) });
@@ -346,6 +341,41 @@ function Player({ seg, onEnded }: { seg: Segment; onEnded: () => void }) {
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
         onLoad={() => ref.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'study', channel: 'widget' }), '*')}
       />
+    </div>
+  );
+}
+
+/**
+ * A non-YouTube resource (course page, interactive site, PDF) inside the Study tab when the site allows it
+ * (the hub checks its headers); otherwise it opens in the browser. Either way "Done" below records it.
+ */
+function Reader({ seg }: { seg: Segment }) {
+  const [v, setV] = useState<{ embeddable: boolean; pdf: boolean; reason: string } | null>(null);
+  useEffect(() => {
+    setV(null);
+    studyCall<{ embeddable: boolean; pdf: boolean; reason: string }>('frameCheck', { url: seg.url }).then(setV, () => setV({ embeddable: false, pdf: false, reason: 'the PC could not check this link' }));
+  }, [seg.url]);
+  // Android's WebView cannot draw PDFs inside a page: those open in the phone's viewer
+  const inApp = !!v?.embeddable && !(v.pdf && isCapacitor);
+  const open = () => window.open(seg.url, '_blank', 'noopener');
+  return (
+    <div>
+      {inApp ? (
+        <div style={{ position: 'relative', height: '70vh', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)', background: '#fff' }}>
+          <iframe title={seg.source} src={seg.url} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', border: 0 }} />
+        </div>
+      ) : (
+        <div className="empty">
+          <strong>{v ? `${seg.source} opens in your browser` : 'Checking the link…'}</strong>
+          {v && <span className="faint">{v.reason}. Study it there, then come back and press Done.</span>}
+        </div>
+      )}
+      <div className="btn-row" style={{ marginTop: 8 }}>
+        <button className="btn sm" onClick={open}>
+          <ExternalLink size={14} /> {inApp ? 'Open in browser instead' : `Open ${seg.source}`}
+          {seg.pages ? ` (pages ${seg.pages})` : ''}
+        </button>
+      </div>
     </div>
   );
 }
@@ -408,7 +438,7 @@ function ConceptWork({ concept, repair, live, onStart, onClose }: { concept: str
             </div>
             <div className="btn-row" style={{ marginTop: 10 }}>
               <button className="btn sm" onClick={() => void done(seg)}>
-                <CheckIcon size={14} /> I watched it
+                <CheckIcon size={14} /> {youtubeId(seg.url) ? 'I watched it' : 'Done — I studied it'}
               </button>
             </div>
           </section>

@@ -118,6 +118,8 @@ export const METHODS: Record<string, Method> = {
   portfolio: { write: true, local: true, run: (svc) => svc.portfolio() },
   dedupe: { run: (svc) => svc.dedupe() },
 
+  frameCheck: { run: (svc, p) => svc.frameCheck({ url: str(p.url, 'url', 2000) }) },
+
   // ---------- transcripts (curation evidence) ----------
   transcript: { write: true, local: true, run: (svc, p) => svc.transcript({ url: str(p.url, 'url', 2000), text: p.text === true }) },
 
