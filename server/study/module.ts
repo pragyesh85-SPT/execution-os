@@ -8,7 +8,9 @@ import { hubBridge } from './eos';
 import { watchVault } from './indexer';
 import { StudyError } from './errors';
 import { StudyService } from './service';
-import { isVault } from './vault';
+import { engineEntry, initVault, isVault } from './vault';
+import { applySchedule, scheduleStatus, startJobNow } from './schedule';
+import { JOBS } from './jobs';
 
 // Study OS inside the Execution OS hub. Nothing happens while the "study" flag is off: no vault is
 // opened, no timer writes, every /api/study route answers 404. Switching the flag on (from any device,
@@ -20,6 +22,8 @@ export interface StudyModuleOptions {
   clock?: () => number;
   watch?: boolean; // re-index on file changes (default true)
   tutor?: TutorProvider; // tests: a mock provider instead of the one in study.json
+  port?: number; // the hub's port (passed to jobs started from the Study tab)
+  engine?: string; // path of study.cjs (default: found next to the running hub)
   log?: (m: string) => void;
 }
 
@@ -107,9 +111,9 @@ export class StudyModule {
     return { provider: this.opts.tutor ?? providerFrom(cfg), cfg };
   }
 
-  setup() {
+  setup(local = false) {
     const vault = this.vaultPath();
-    return { enabled: this.enabled, vault, exists: isVault(vault), tutor: publicTutor(this.config.tutor()) };
+    return { enabled: this.enabled, vault, exists: isVault(vault), local, engine: !!(this.opts.engine ?? engineEntry()), tutor: publicTutor(this.config.tutor()) };
   }
 
   async handle(req: IncomingMessage, res: ServerResponse, url: URL, ctx: CallCtx, readBody: (req: IncomingMessage, limit?: number) => Promise<string>, send: Send): Promise<void> {
@@ -123,7 +127,38 @@ export class StudyModule {
       } else if (url.searchParams.get('p')) params = JSON.parse(url.searchParams.get('p')!) as Record<string, unknown>;
       if (!params || typeof params !== 'object' || Array.isArray(params)) throw new StudyError('Parameters must be a JSON object.');
 
-      if (name === 'setup') return send(res, 200, this.setup());
+      if (name === 'setup') return send(res, 200, this.setup(ctx.local));
+      if (name === 'setupVault') {
+        // Create (or complete) the vault from the Study tab on the PC — no command line needed.
+        if (!ctx.local) return send(res, 403, { error: 'Only available on the hub PC' });
+        if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
+        const path = typeof params.path === 'string' && params.path.trim() ? params.path.trim() : this.vaultPath();
+        if (this.opts.vault && path !== this.opts.vault) throw new StudyError('This hub was started with a fixed vault.');
+        const engine = this.opts.engine ?? engineEntry();
+        const r = initVault(path, { engine, node: process.execPath });
+        if (!this.opts.vault) this.config.write({ vault: r.root });
+        this.stop();
+        this.service();
+        return send(res, 200, { ...r, setup: this.setup(true) });
+      }
+      if (name === 'schedule' || name === 'runJobNow') {
+        if (!ctx.local) return send(res, 403, { error: 'Only available on the hub PC' });
+        const vault = this.vaultPath();
+        if (!isVault(vault)) return send(res, 409, { error: 'Create the Study Vault first.' });
+        if (name === 'schedule') {
+          if (req.method === 'POST' && (params.action === 'register' || params.action === 'remove')) {
+            const r = applySchedule(vault, { remove: params.action === 'remove', dryRun: params.dryRun === true });
+            return send(res, r.ok ? 200 : 409, { ...r, status: params.dryRun ? null : scheduleStatus() });
+          }
+          return send(res, 200, scheduleStatus());
+        }
+        const job = String(params.job ?? '');
+        if (!JOBS[job]) return send(res, 400, { error: `Unknown job "${job}"` });
+        const engine = this.opts.engine ?? engineEntry();
+        if (!engine) return send(res, 409, { error: 'The study engine (study.cjs) was not found next to the hub.' });
+        startJobNow(job, vault, engine, { EOS_DB: this.opts.hubDb.file, EOS_STUDY_VAULT: vault, ...(this.opts.port ? { EOS_PORT: String(this.opts.port) } : {}) });
+        return send(res, 200, { ok: true, started: job, log: 'logs/' });
+      }
       if (name === 'config') {
         if (!ctx.local) return send(res, 403, { error: 'Only available on the hub PC' });
         if (req.method === 'POST' && typeof params.vault === 'string' && params.vault.trim()) {

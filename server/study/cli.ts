@@ -8,6 +8,7 @@ import { StudyConfigFile } from './config';
 import { StudyService } from './service';
 import { providerFrom } from './tutor';
 import { runJob } from './jobs';
+import { applySchedule, scheduleStatus } from './schedule';
 import { commitVault, defaultVaultPath, initVault, isVault } from './vault';
 import type { QueueItem } from '../../src/core/study/types';
 
@@ -505,6 +506,20 @@ export const COMMANDS: Record<string, Cmd> = {
       );
     },
   },
+  schedule: {
+    usage: 'study schedule [--dry-run] [--remove]',
+    help: 'Register the headless jobs in Windows Task Scheduler (or show / remove them).',
+    async run(args, { out, json, vault, setExit }) {
+      const { flags } = parseFlags(args);
+      if (!flags['dry-run'] && !flags.remove && args.includes('--status')) {
+        const s = scheduleStatus();
+        return print(out, json, s, () => [`Claude Code: ${s.claude ?? 'NOT FOUND — install it and sign in first'}`, ...s.tasks.map((t) => `  ${t.registered ? '✓' : '·'} ${t.name.padEnd(11)} ${t.when}${t.nextRun ? ` · next ${t.nextRun}` : ''}`)].join('\n'));
+      }
+      const r = applySchedule(vault, { remove: flags.remove === true, dryRun: flags['dry-run'] === true });
+      if (!r.ok) setExit(1);
+      print(out, json, r, () => [...r.lines, ...(flags['dry-run'] ? ['', 'Dry run: nothing was registered.'] : [])].join('\n'));
+    },
+  },
   commit: {
     usage: 'study commit "<message>"',
     help: 'Commit the vault (local git only). Every headless job ends with this.',
@@ -516,7 +531,7 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 };
 
-const BOOL_FLAGS = new Set(['move', 'quiet', 'dry-run', 'force', 'json']);
+const BOOL_FLAGS = new Set(['move', 'quiet', 'dry-run', 'force', 'json', 'remove', 'status', 'auto']);
 
 /** "--subject lana --week 3 --move" → flags; everything else stays positional. */
 export function parseFlags(args: string[]): { pos: string[]; flags: Record<string, string | true> } {

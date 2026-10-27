@@ -53,6 +53,8 @@ export function templateDir(): string {
   const candidates = [
     process.env.EOS_STUDY_TEMPLATE,
     process.argv[1] ? resolve(dirname(process.argv[1]), '..', 'templates', 'study-vault') : undefined,
+    // installed app, CLI run from resources/app.asar.unpacked/build/study.cjs → resources/templates
+    process.argv[1] ? resolve(dirname(process.argv[1]), '..', '..', 'templates', 'study-vault') : undefined,
     resolve(process.cwd(), 'templates', 'study-vault'),
     // packaged desktop app: resources/app.asar.unpacked or resources/templates
     (process as { resourcesPath?: string }).resourcesPath ? join((process as { resourcesPath?: string }).resourcesPath!, 'templates', 'study-vault') : undefined,
@@ -60,6 +62,21 @@ export function templateDir(): string {
   const found = candidates.find((c) => existsSync(join(c, 'vault.yaml')));
   if (!found) throw new Error(`The Study Vault template was not found (looked in ${candidates.join(', ')}).`);
   return found;
+}
+
+/**
+ * The `study` CLI bundle next to the running hub: build/study.cjs in a checkout, or inside the installed
+ * app (unpacked from app.asar so the shims can run it with `Execution OS.exe` in Node mode).
+ */
+export function engineEntry(): string | undefined {
+  const here = typeof __dirname === 'string' ? __dirname : undefined;
+  const candidates = [here && join(here, 'study.cjs'), process.argv[1] ? resolve(dirname(process.argv[1]), 'study.cjs') : undefined].filter((x): x is string => !!x);
+  for (const c of candidates) {
+    const unpacked = c.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+    if (unpacked !== c && existsSync(unpacked)) return unpacked;
+    if (existsSync(c)) return c;
+  }
+  return undefined;
 }
 
 /** Is `target` inside a checkout of the Execution OS engine? The vault must never live in the repo. */

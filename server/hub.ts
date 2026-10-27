@@ -137,7 +137,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
   }, 10 * 60 * 1000);
 
   const devices = new Devices(db, { ttlMs: opts.pairTtlMs });
-  const study = new StudyModule({ ...(opts.study ?? {}), hubDb: db, log });
+  const study = new StudyModule({ port: opts.port, ...(opts.study ?? {}), hubDb: db, log });
   const pairedRecently: { name: string; at: number }[] = [];
   const tunnel = opts.tunnel ?? tailscale;
   let serveUrl: string | null = null;

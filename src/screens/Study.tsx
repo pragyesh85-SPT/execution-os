@@ -5,6 +5,7 @@ import { fmtTime } from '../core/study/ids';
 import { RUNG_LABEL, type QueueItem, type Rung, type Segment, type SubjectProgress } from '../core/study/types';
 import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCall, youtubeId } from '../lib/studyApi';
 import { useStore } from '../state/store';
+import { CreateVault, StudySetup } from './StudySetup';
 
 // The Study tab: open it, see the next video. Everything here comes from the hub on the PC; offline it
 // shows the last pack it saved (next 3 items, their checks, due reviews) and queues answers.
@@ -144,7 +145,7 @@ export function Study() {
         </div>
       </header>
 
-      {err && <SetupHelp err={err} />}
+      {err && (err.setup ? <CreateVault onDone={() => void load()} /> : <SetupHelp err={err} />)}
       {!ov && !err && summary && <SummaryOnly summary={summary} />}
       {!ov && !err && !summary && <div className="empty">Connecting to your PC…</div>}
 
@@ -216,6 +217,7 @@ export function Study() {
 
           {ov.iitj && <IitjTrack iitj={ov.iitj} onDone={() => void load()} />}
           <Extras lastTest={ov.lastTest} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} />
+          <StudySetup subjects={ov.subjects} onChanged={() => void load()} />
         </div>
       )}
     </div>
