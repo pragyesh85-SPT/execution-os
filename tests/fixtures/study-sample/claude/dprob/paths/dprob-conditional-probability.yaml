@@ -1,0 +1,18 @@
+concept: dprob-conditional-probability
+segments:
+  - kind: intuition
+    url: https://seeing-theory.brown.edu/compound-probability/index.html
+    source: Seeing Theory
+    university: Brown
+    why: Interactive Venn picture of restricting to B.
+    checkedAt: "2026-10-28"
+  - kind: formal
+    url: https://www.youtube.com/watch?v=P7NE4WF8j-Q
+    start: "2:00"
+    end: "14:00"
+    source: Harvard Stat 110
+    university: Harvard
+    course: Stat 110
+    lecture: Lecture 4
+    why: Blitzstein's definition and first examples.
+    checkedAt: "2026-10-28"

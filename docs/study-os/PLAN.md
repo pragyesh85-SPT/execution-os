@@ -26,11 +26,33 @@ Goal: the module exists, is switched off by default, and changes nothing in Exec
    vault `.gitignore` (assets, `study.db`, backups, logs never committed).
 5. `server/study/vault.ts`: `initVault(path)` copies the template, creates the folder layout, `git init`
    (when git exists), a pre-push hook that refuses pushes, and the `study` shims.
-6. Hub: `/api/study/*` routes, refused with 404 while the flag is off; the vault path lives in hub
-   meta (`study.vault`, PC only, never synced) or `EOS_STUDY_VAULT`.
+6. Hub: `/api/study/*` routes, refused with 404 while the flag is off; the vault path lives in
+   `study.json` next to the Execution OS database (PC only, never synced) or `EOS_STUDY_VAULT`.
 7. `study` CLI (`server/study/cli.ts` → `build/study.cjs`, `npm run study -- …`): `init`, `status`, `next`
    (P0: vault + store wiring; real numbers arrive in P1).
 8. Repo `.gitignore`: vault folders, `study.db*`, assets; the template's `.claude/` is re-included.
 
 Tests: flag default and parity, store migrations + backups, vault init idempotency, git-ignore rules,
 hub routes off/on, CLI init/status.
+
+---
+
+## P1 — Ingestion and the learning engine
+
+Goal: point the system at a folder of assets and get a real queue, real numbers and Execution OS sessions.
+
+1. Pure engine (`src/core/study/`): syllabus parser, asset classifier, FSRS scheduler, status ladder
+   and the 8 mastery dimensions from evidence, the repair rule, the queue, progress / pace / readiness.
+2. `server/study/extract.ts`: text from md/txt/tex/py/csv/json, srt/vtt (timed), html, ipynb, pptx and
+   docx (built-in zip reader), pdf through `pdftotext` when installed; everything else is flagged for Claude.
+3. `server/study/ingest.ts`: hash-dedupe → classify (subject, week, type) → copy into `assets/` →
+   `extracted/<asset>.md` → syllabus outline → concept stubs → index. Unknown subject → `inbox/unsorted/`.
+4. `server/study/indexer.ts` + parsers: every vault file → `study.db` items; parse errors listed, never fatal;
+   the hub re-indexes on file changes (debounced watcher).
+5. `server/study/eos.ts`: Start inside an IIT block, or Quick Override swap, or a live block, or a
+   block-less session; Stop fills the Proof (`loggedVia: 'study'`); 10 idle minutes mark drift;
+   `studySummary` kept current; IITJ deadlines become `iit` tasks.
+6. Service + API + CLI: `ingest`, `pending`, `concepts`, `concept`, `log`, `start`, `stop`, `progress`,
+   `deadline submit`, `iitj lecture`, `state` (writes `STATE.md`), `assets`, `reindex`.
+7. Synthetic sample subject in `tests/fixtures/study-sample/` (slides as md + pptx + docx, transcript,
+   quiz, syllabus, plus the files Claude would write) and an end-to-end ingest test.

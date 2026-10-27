@@ -1,0 +1,41 @@
+questions:
+  - id: demo-q-dot-1
+    concepts: [demo-dot-product]
+    source: generated
+    style: iitj
+    kind: numerical
+    q: Compute ⟨(1, 2, 3), (0, 1, 0)⟩ and say whether the vectors are perpendicular.
+    answer: "2; not perpendicular"
+    marks: 4
+    rubric:
+      - { point: Correct sum of products (2), marks: 3 }
+      - { point: Correct conclusion, marks: 1 }
+  - id: demo-q-span-1
+    concepts: [demo-vectors-and-linear-combinations]
+    source: generated
+    kind: conceptual
+    q: Explain why (1, 0) and (0, 1) span the plane.
+    answer: Any (a, b) = a(1, 0) + b(0, 1).
+    marks: 3
+    rubric:
+      - { point: Writes a general vector as a combination, marks: 3 }
+  - id: demo-q-transfer-1
+    concepts: [demo-dot-product, demo-vectors-and-linear-combinations]
+    source: generated
+    kind: derivation
+    transfer: true
+    q: Show that the dot product of v with a·u + b·w equals a⟨v,u⟩ + b⟨v,w⟩.
+    answer: Expand entry by entry.
+    marks: 4
+    rubric:
+      - { point: Expands the combination entry-wise, marks: 2 }
+      - { point: Regroups into the two dot products, marks: 2 }
+  - id: demo-q-dot-prog
+    concepts: [demo-dot-product]
+    source: generated
+    kind: programming
+    q: Write cosine(u, v) returning the cosine of the angle between two non-zero vectors.
+    entry: cosine
+    starter: "def cosine(u, v):\n    ..."
+    tests: questions/hidden/demo-q-dot-prog_test.py
+    marks: 5

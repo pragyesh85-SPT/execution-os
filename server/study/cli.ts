@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { METHODS } from './api';
 import { StudyConfigFile } from './config';
 import { StudyService } from './service';
-import { defaultVaultPath, initVault, isVault } from './vault';
+import { commitVault, defaultVaultPath, initVault, isVault } from './vault';
 import type { QueueItem } from '../../src/core/study/types';
 
 // The `study` command line — for you and for Claude Code inside the vault.
@@ -99,7 +99,7 @@ interface Cmd {
   usage: string;
   help: string;
   noVault?: boolean;
-  run: (args: string[], ctx: { client: () => Promise<Client>; out: Out; json: boolean; env: CliEnv; config: StudyConfigFile; vault: string }) => Promise<void>;
+  run: (args: string[], ctx: { client: () => Promise<Client>; out: Out; json: boolean; env: CliEnv; config: StudyConfigFile; vault: string; setExit: (code: number) => void }) => Promise<void>;
 }
 
 const print = (out: Out, json: boolean, value: unknown, human: () => string) => out(json ? JSON.stringify(value, null, 2) : human());
@@ -149,10 +149,202 @@ export const COMMANDS: Record<string, Cmd> = {
     async run(_a, { client, out, json }) {
       const c = await client();
       const r = (await c.call('next')) as { items: QueueItem[] };
-      print(out, json, r, () => (r.items.length ? r.items.map((i, n) => `${String(n + 1).padStart(2)}. [${i.kind}] ${i.title} — ${i.why}`).join('\n') : 'Nothing queued yet. Add the syllabus and run: study ingest <folder>'));
+      print(out, json, r, () => (r.items.length ? r.items.map((i, n) => `${String(n + 1).padStart(2)}. [${i.kind}${i.kind === 'learn' ? `: ${i.step}` : ''}] ${i.title} (${i.minutes} min) — ${i.why}${i.kind === 'learn' && i.segment ? `\n      ${i.segment.source}: ${i.segment.url}` : ''}`).join('\n') : 'Nothing queued yet. Add the syllabus and run: study ingest <folder>'));
+    },
+  },
+  ingest: {
+    usage: 'study ingest <folder|file> [--subject s] [--week n] [--type t] [--move]',
+    help: 'Copy new IITJ assets into the vault, classify, extract text, create concept stubs.',
+    async run(args, { client, out, json }) {
+      const { pos, flags } = parseFlags(args);
+      if (!pos[0]) throw new CliError('Usage: study ingest <folder> [--subject s] [--week n] [--type t] [--move]');
+      const r = (await (await client()).call('ingest', { folder: resolve(pos[0]), subject: flags.subject, week: flags.week === undefined ? undefined : Number(flags.week), type: flags.type, move: flags.move === true })) as {
+        added: { id: string; subject: string; type: string; week: number | null; needsClaude: boolean }[];
+        duplicates: string[];
+        unsorted: string[];
+        skipped: { file: string; reason: string }[];
+        syllabusWritten: string[];
+        index: { stubs: number; errors: { path: string; error: string }[] };
+      };
+      print(out, json, r, () =>
+        [
+          `${r.added.length} asset(s) added, ${r.duplicates.length} already in the vault, ${r.unsorted.length} without a subject (inbox/unsorted), ${r.skipped.length} skipped.`,
+          ...r.added.map((a) => `  + ${a.id}  [${a.subject} · ${a.type}${a.week !== null ? ` · week ${a.week}` : ''}]${a.needsClaude ? '  needs Claude (/ingest)' : ''}`),
+          ...r.unsorted.map((u) => `  ? ${u}  subject unknown — re-run with --subject, or let /ingest file it`),
+          ...r.skipped.map((s) => `  - ${s.file}: ${s.reason}`),
+          ...(r.syllabusWritten.length ? [`  syllabus filled from: ${r.syllabusWritten.join(', ')}`] : []),
+          `  ${r.index.stubs} concept stub(s) created from the syllabus${r.index.errors.length ? ` · ${r.index.errors.length} file(s) did not parse (study status)` : ''}`,
+          'Next: run /ingest in Claude Code (or wait for the 2-hourly job) to decompose the assets into concepts.',
+        ].join('\n'),
+      );
+    },
+  },
+  pending: {
+    usage: 'study pending [--quiet]',
+    help: 'New work for /ingest (inbox, unsorted, new assets). Exit code 10 when there is none.',
+    async run(args, { client, out, json, setExit }) {
+      const r = (await (await client()).call('pending')) as { inbox: string[]; unsorted: string[]; newAssets: string[]; total: number };
+      if (!r.total) setExit(10);
+      if (args.includes('--quiet')) return;
+      print(out, json, r, () => (r.total ? [`${r.total} item(s) waiting:`, ...r.inbox.map((f) => `  inbox: ${f}`), ...r.unsorted.map((f) => `  unsorted: ${f}`), ...r.newAssets.map((a) => `  new asset: ${a}`)].join('\n') : 'Nothing new.'));
+    },
+  },
+  concepts: {
+    usage: 'study concepts [subject]',
+    help: 'Every concept with its ladder status and what it still lacks (path, pack, lab).',
+    async run(args, { client, out, json }) {
+      const r = (await (await client()).call('concepts', { subject: args[0] })) as { concepts: { id: string; title: string; week: number | null; status: string; rung: string; nextStep: string; hasPath: boolean; hasPack: boolean; hasLab: boolean; released: boolean }[] };
+      print(out, json, r, () =>
+        r.concepts.length
+          ? r.concepts.map((c) => `${c.id.padEnd(34)} ${(c.week === null ? '' : `w${c.week}`).padEnd(4)} ${c.rung.padEnd(10)} ${c.status === 'stub' ? 'stub ' : '     '}${c.hasPath ? 'path ' : '---- '}${c.hasPack ? 'pack ' : '---- '}${c.hasLab ? 'lab ' : '--- '}${c.released ? '' : '(unreleased) '}${c.title}`).join('\n')
+          : 'No concepts yet. Fill syllabus.md and run: study reindex',
+      );
+    },
+  },
+  concept: {
+    usage: 'study concept <id>',
+    help: 'One concept: card, ladder, mastery, resource path, pack (without answers), recent evidence.',
+    async run(args, { client, out }) {
+      if (!args[0]) throw new CliError('Usage: study concept <id>');
+      out(JSON.stringify(await (await client()).call('concept', { id: args[0] }), null, 2));
+    },
+  },
+  log: {
+    usage: "study log <kind> <concept|-> ['<json>'] [--source claude]",
+    help: 'Record evidence: explain, quick, lab, review, test_item, mistake, repair_done, segment_done …',
+    async run(args, { client, out, json }) {
+      const { pos, flags } = parseFlags(args);
+      const [kind, concept, raw] = pos;
+      if (!kind) throw new CliError("Usage: study log <kind> <concept|-> '<json>'");
+      let data: unknown = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new CliError('The data must be JSON, e.g. \'{"coverage":0.85,"pass":true}\'');
+      }
+      const r = await (await client()).call('log', { kind, concept: concept && concept !== '-' ? concept : undefined, data, source: typeof flags.source === 'string' ? flags.source : 'cli' });
+      print(out, json, r, () => `Recorded ${kind}${concept && concept !== '-' ? ` for ${concept}` : ''}${(r as { rung?: string }).rung ? ` · now ${(r as { rung?: string }).rung}` : ''}.`);
+    },
+  },
+  start: {
+    usage: 'study start [concept]',
+    help: 'Start studying: Execution OS shows "Studying now", runs the timer and turns Focus Guard on.',
+    async run(args, { client, out, json }) {
+      const r = (await (await client()).call('start', { concept: args[0] })) as { id: string; label: string; eos: { how: string } | null };
+      print(out, json, r, () => `${r.label} — session ${r.id}${r.eos ? ` (${r.eos.how === 'swap' ? 'swapped the current block to study' : r.eos.how === 'live' ? 'live block added from now' : r.eos.how === 'none' ? 'no block — logged as a free session' : 'inside the current block'})` : ' (Execution OS is not running: not recorded there)'}`);
+    },
+  },
+  stop: {
+    usage: 'study stop [note]',
+    help: 'Stop the session; the Execution OS proof fills itself (concepts, questions, lab).',
+    async run(args, { client, out, json }) {
+      const r = (await (await client()).call('stop', { note: args.join(' ') || undefined })) as { line: string; minutes: number };
+      print(out, json, r, () => `Stopped after ${r.minutes} min: ${r.line}`);
+    },
+  },
+  progress: {
+    usage: 'study progress',
+    help: 'Coverage, readiness, pace, projected ready date, per subject.',
+    async run(_a, { client, out, json }) {
+      const p = (await (await client()).call('progress')) as import('../../src/core/study/types').Progress;
+      const pc = (n: number) => `${Math.round(n * 100)}%`;
+      print(out, json, p, () =>
+        [
+          `Exam in ${p.daysToExam} days (${p.examStart}) · ready by ${p.readyBy} (${p.daysToReady} days) · projected ${p.projectedReady ?? 'unknown'}`,
+          `Coverage ${pc(p.coverage)} (released ${pc(p.releasedCoverage)}) · readiness ${pc(p.readiness)} · IITJ track ${pc(p.iitjTrack)} · pace ${p.pace.status}${p.pace.behindBy ? ` (behind by ${p.pace.behindBy})` : ''}: need ${p.pace.neededPerDay.toFixed(1)}/day, doing ${p.pace.averagePerDay.toFixed(1)}/day`,
+          ...p.subjects.map((s) => `  ${s.title.padEnd(44)} ${String(s.applied).padStart(3)}/${String(s.concepts).padEnd(4)} coverage ${pc(s.coverage).padStart(4)} · readiness ${pc(s.readiness)}`),
+        ].join('\n'),
+      );
+    },
+  },
+  deadline: {
+    usage: 'study deadline submit <id>',
+    help: 'Mark an IITJ assignment / quiz submitted (its task is done; hints-only ends).',
+    async run(args, { client, out }) {
+      if (args[0] !== 'submit' || !args[1]) throw new CliError('Usage: study deadline submit <id>');
+      await (await client()).call('deadlineSubmit', { id: args[1] });
+      out(`Marked ${args[1]} submitted.`);
+    },
+  },
+  iitj: {
+    usage: 'study iitj lecture <asset-id> [concept]',
+    help: 'Record an IITJ lecture as watched (IITJ track %).',
+    async run(args, { client, out }) {
+      if (args[0] !== 'lecture' || !args[1]) throw new CliError('Usage: study iitj lecture <asset-id> [concept]');
+      await (await client()).call('iitjLecture', { asset: args[1], concept: args[2] });
+      out(`Recorded lecture ${args[1]}.`);
+    },
+  },
+  assets: {
+    usage: 'study assets [--status new|processed|unsorted] [--subject s]',
+    help: 'Ingested assets and where their extracted text is.',
+    async run(args, { client, out, json }) {
+      const { flags } = parseFlags(args);
+      const r = (await (await client()).call('assets', { status: flags.status, subject: flags.subject })) as { assets: { id: string; type: string; status: string; path: string; extracted: string | null; needsClaude: boolean }[] };
+      print(out, json, r, () => r.assets.map((a) => `${a.id.padEnd(40)} ${a.type.padEnd(11)} ${a.status.padEnd(9)} ${a.needsClaude ? 'needs Claude  ' : '              '}${a.extracted ?? a.path}`).join('\n') || 'No assets.');
+    },
+  },
+  'asset-done': {
+    usage: 'study asset-done <id>',
+    help: '/ingest: mark an asset decomposed into concepts.',
+    async run(args, { client, out }) {
+      if (!args[0]) throw new CliError('Usage: study asset-done <id>');
+      await (await client()).call('assetDone', { id: args[0] });
+      out(`${args[0]} processed.`);
+    },
+  },
+  reindex: {
+    usage: 'study reindex',
+    help: 'Re-read changed vault files now (the hub also does this on every change).',
+    async run(_a, { client, out, json }) {
+      const r = (await (await client()).call('reindex')) as { scanned: number; changed: number; removed: number; stubs: string[]; errors: { path: string; error: string }[] };
+      print(out, json, r, () => [`${r.scanned} file(s), ${r.changed} changed, ${r.removed} removed, ${r.stubs.length} stub(s) created.`, ...r.errors.map((e) => `  ! ${e.path}: ${e.error}`)].join('\n'));
+    },
+  },
+  state: {
+    usage: 'study state',
+    help: 'Regenerate STATE.md (the brief every Claude session reads first).',
+    async run(_a, { client, out, json }) {
+      const r = (await (await client()).call('state')) as { file: string; text: string };
+      print(out, json, r, () => r.text);
+    },
+  },
+  session: {
+    usage: 'study session <id>',
+    help: 'The report of one study session.',
+    async run(args, { client, out }) {
+      if (!args[0]) throw new CliError('Usage: study session <id>');
+      out(JSON.stringify(await (await client()).call('session', { id: args[0] }), null, 2));
+    },
+  },
+  commit: {
+    usage: 'study commit "<message>"',
+    help: 'Commit the vault (local git only). Every headless job ends with this.',
+    async run(args, { out, vault }) {
+      const r = commitVault(vault, args.join(' ').trim() || 'Study OS update');
+      if (!r.ok) throw new CliError(`git commit failed: ${r.out}`);
+      out(r.out || 'Committed.');
     },
   },
 };
+
+const BOOL_FLAGS = new Set(['move', 'quiet', 'dry-run', 'force', 'json']);
+
+/** "--subject lana --week 3 --move" → flags; everything else stays positional. */
+export function parseFlags(args: string[]): { pos: string[]; flags: Record<string, string | true> } {
+  const pos: string[] = [];
+  const flags: Record<string, string | true> = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      const [k, v] = a.slice(2).split('=', 2);
+      if (v !== undefined) flags[k] = v;
+      else if (!BOOL_FLAGS.has(k) && args[i + 1] !== undefined && !args[i + 1].startsWith('--')) flags[k] = args[++i];
+      else flags[k] = true;
+    } else pos.push(a);
+  }
+  return { pos, flags };
+}
 
 const HELP_ORDER = () => Object.keys(COMMANDS);
 
@@ -182,6 +374,7 @@ export async function runStudyCli(argv: string[], env: CliEnv = {}): Promise<num
   const config = new StudyConfigFile(env.eosDb ?? eosDbPath());
   const vault = config.vault();
   let client: Client | null = null;
+  let code = 0;
   try {
     if (!cmd.noVault && !isVault(vault)) throw new CliError(`No Study Vault at ${vault}. Create it first: study init ${vault === defaultVaultPath() ? defaultVaultPath() : vault}`);
     await cmd.run(rest, {
@@ -190,9 +383,10 @@ export async function runStudyCli(argv: string[], env: CliEnv = {}): Promise<num
       env,
       config,
       vault,
+      setExit: (c) => (code = c),
       client: async () => (client ??= await connect(env, vault)),
     });
-    return 0;
+    return code;
   } catch (e) {
     err((e as Error).message);
     return 1;

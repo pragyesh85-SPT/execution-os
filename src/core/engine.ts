@@ -90,19 +90,24 @@ export function proofFor(doc: Doc, date: string, blockId: string): Proof | undef
 export function creditedMinutes(doc: Doc, date: string, category: Category, nowMs: number): number {
   const plan = planFor(doc, date);
   let total = 0;
+  // A Study OS session counts toward its own category (study), even inside a swapped block of another one.
+  const foreign = (s: Session) => s.source === 'study' && s.category !== category;
   for (const b of liveBlocks(plan).filter((x) => x.category === category)) {
-    const tracked = minutesForBlock(doc, date, b.id, nowMs);
+    const tracked = sessionsFor(doc, date)
+      .filter((s) => s.blockId === b.id && !foreign(s))
+      .reduce((acc, s) => acc + sessionMinutes(s, nowMs), 0);
     const proof = proofFor(doc, date, b.id);
     let credit = tracked;
-    if (tracked < 1 && proof) {
+    // Study OS proofs always come with timed sessions; they never stand in for untimed block work.
+    if (tracked < 1 && proof && proof.loggedVia !== 'study') {
       credit = proof.status === 'done' ? b.e - b.s : proof.status === 'partial' ? (b.e - b.s) / 2 : 0;
     }
     total += credit;
   }
   // sessions on blocks that no longer exist in the plan (e.g. before a rescue) still count
-  const known = new Set(plan.blocks.map((b) => b.id));
+  const known = new Map(plan.blocks.map((b) => [b.id, b.category]));
   total += sessionsFor(doc, date)
-    .filter((s) => s.category === category && !known.has(s.blockId))
+    .filter((s) => s.category === category && (!known.has(s.blockId) || (s.source === 'study' && known.get(s.blockId) !== category)))
     .reduce((acc, s) => acc + sessionMinutes(s, nowMs), 0);
   return total;
 }

@@ -3,6 +3,8 @@ import { isOn } from '../../src/core/features';
 import type { HubDb } from '../db';
 import { METHODS, type CallCtx } from './api';
 import { publicTutor, StudyConfigFile } from './config';
+import { hubBridge } from './eos';
+import { watchVault } from './indexer';
 import { StudyError, StudyService } from './service';
 import { isVault } from './vault';
 
@@ -14,6 +16,7 @@ export interface StudyModuleOptions {
   hubDb: HubDb;
   vault?: string; // fixed vault (tests); otherwise EOS_STUDY_VAULT / study.json / default
   clock?: () => number;
+  watch?: boolean; // re-index on file changes (default true)
   log?: (m: string) => void;
 }
 
@@ -22,6 +25,7 @@ type Send = (res: ServerResponse, status: number, body: unknown) => void;
 export class StudyModule {
   readonly config: StudyConfigFile;
   private svc: StudyService | null = null;
+  private unwatch: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval>;
   private readonly log: (m: string) => void;
 
@@ -49,22 +53,47 @@ export class StudyModule {
     const vault = this.vaultPath();
     if (this.svc && this.svc.root !== vault) this.stop();
     if (!this.svc && isVault(vault)) {
-      this.svc = new StudyService({ vault, clock: this.opts.clock, log: this.log });
+      const svc = new StudyService({ vault, clock: this.opts.clock, log: this.log, eos: hubBridge(this.opts.hubDb, this.opts.clock), driftMinutes: this.config.read().driftMinutes });
+      this.svc = svc;
       try {
-        const b = this.svc.db.backupIfDue();
+        const b = svc.db.backupIfDue();
         if (b) this.log(`study backup ok: ${b}`);
       } catch (e) {
         this.log(`study backup failed: ${(e as Error).message}`);
       }
+      if (this.opts.watch !== false)
+        this.unwatch = watchVault(vault, () => {
+          try {
+            if (this.svc === svc) {
+              svc.reindex();
+              svc.pushSummary();
+            }
+          } catch (e) {
+            this.log(`study re-index failed: ${(e as Error).message}`);
+          }
+        });
+      this.pushSummary();
     }
     return this.svc;
   }
 
-  /** Once a minute: follow the flag, keep the daily backup. Later phases add drift and the summary. */
+  private pushSummary() {
+    try {
+      this.svc?.pushSummary();
+    } catch (e) {
+      this.log(`study summary failed: ${(e as Error).message}`);
+    }
+  }
+
+  /** Once a minute: follow the flag, keep the daily backup, mark drift, keep the synced summary current. */
   tick() {
     try {
       const s = this.service();
-      s?.db.backupIfDue();
+      if (!s) return;
+      s.db.backupIfDue();
+      const d = s.checkDrift();
+      if (d !== 'none') this.log(`study session: ${d}`);
+      this.pushSummary();
     } catch (e) {
       this.log(`study tick failed: ${(e as Error).message}`);
     }
@@ -103,6 +132,7 @@ export class StudyModule {
       const svc = this.service();
       if (!svc) return send(res, 409, { error: `No Study Vault at ${this.vaultPath()}. On the PC run: npm run study -- init "${this.vaultPath()}"`, setup: false, vault: this.vaultPath() });
       const out = await m.run(svc, params, ctx);
+      if (m.write) this.pushSummary();
       return send(res, 200, out ?? { ok: true });
     } catch (e) {
       const status = e instanceof StudyError ? e.status : 400;
@@ -112,6 +142,8 @@ export class StudyModule {
   }
 
   stop() {
+    this.unwatch?.();
+    this.unwatch = null;
     if (!this.svc) return;
     this.svc.close();
     this.svc = null;
