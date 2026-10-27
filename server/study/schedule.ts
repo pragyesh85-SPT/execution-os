@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 
 // Windows Task Scheduler for the headless Claude jobs, used by the Study tab (PC only) and
 // `study schedule`. Keep TASKS in step with scripts/study-schedule.mjs (a test compares them).
@@ -18,7 +18,7 @@ export const TASKS = [
 ];
 
 export function taskArgs(vault: string) {
-  const shim = join(vault, 'study.cmd');
+  const shim = win32.join(vault, 'study.cmd'); // Task Scheduler is Windows: always a Windows path
   return TASKS.map((t) => ({ ...t, args: ['/Create', '/F', '/TN', `${FOLDER}\\${t.name}`, '/TR', `${/\s/.test(shim) ? `"${shim}"` : shim} run-job ${t.job}`, ...t.schedule, '/RL', 'LIMITED'] }));
 }
 

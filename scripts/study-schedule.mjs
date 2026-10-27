@@ -8,7 +8,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, win32 } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const FOLDER = 'StudyOS';
@@ -24,7 +24,7 @@ export const TASKS = [
 
 /** The schtasks argument lists for a vault. */
 export function taskCommands(vault) {
-  const shim = join(vault, 'study.cmd');
+  const shim = win32.join(vault, 'study.cmd'); // Task Scheduler is Windows: always a Windows path
   return TASKS.map((t) => ({
     ...t,
     // Node passes an embedded quote as \" — the form schtasks expects inside /TR — when the path has spaces.
