@@ -1,6 +1,6 @@
 # Execution OS + Study OS — User Manual
 
-Version 2.1 · for Windows, Android and any browser
+Version 2.2 · for Windows, Android and any browser
 
 This manual explains how to install and use everything: **Execution OS** (your 24-hour command system)
 and **Study OS** (the study module that runs inside it). Read Part 1 once, then keep Part 3 (daily use)
@@ -324,7 +324,7 @@ which is why the heavy ones run at night. **Remove all** takes them out again.
 | Due today | Review cards, repair items, the 3-day test when due |
 | Subjects | Per subject: coverage bar (orange) and readiness bar (green) |
 | IITJ track | Lectures watched and assignments submitted, open deadlines with a *Submitted* button |
-| More | Last test report, capture box, concept graph, proposals, recent AI changes with Undo |
+| More | Last test report, capture box, the **concept graph**, proposals, recent AI changes with Undo |
 | Study setup | (PC only) assets, Quick Tutor, scheduled jobs |
 
 ### 6.2 One concept, step by step
@@ -334,8 +334,15 @@ which is why the heavy ones run at night. **Remove all** takes them out again.
    that block to study; with no block it adds one. Study whenever you like — the system follows you.
 2. **Open** the Next up item. **Watch** the segment: it plays right there and stops at the chosen time.
    When it ends it is marked watched (or press *I watched it*). Status: **Seen**.
-3. **Explain it in your own words** — type, or press **Speak**. The tutor marks which key points you
-   covered or missed and gives 2–3 lines of feedback. Covering 80 % of the key points = **Understood**.
+   - Start and end times are used only when they match the video's own **transcript or chapters**
+     (Claude cannot watch videos, so it may only pick times from that text). Otherwise the segment shows
+     **times not verified · whole video** and the whole video plays.
+   - Course pages, interactive sites (Seeing Theory, VisuAlgo) and PDFs open **inside the Study tab** when
+     the site allows it; otherwise they open in your browser. Press **Done — I studied it** when finished.
+3. **Explain it in your own words** — type, or press **Speak** and talk (in the Android app it uses the
+   phone's own speech recognition; on the PC, Chrome or Edge). You see the words as you speak; tap again
+   to stop. Typing always works. The tutor marks which key points you covered or missed and gives 2–3
+   lines of feedback. Covering 80 % of the key points = **Understood**.
    If you miss, the next step offers an **alternate explanation** and a hint.
 4. **Quick check**: 5–10 short questions from the pack. 80 % right (and the lab passed, if the concept
    has one) = **Applied**.
@@ -359,6 +366,13 @@ left alone for 90 minutes stops itself.
 Each concept also shows 8 mastery bars (exposure, understanding, recall, application, implementation,
 retention, transfer, speed), each computed only from evidence, or "no evidence yet".
 
+### 6.3a The concept graph
+
+**More → Concept graph → Show** draws one subject at a time: arrows from prerequisites, dashed lines to
+the questions that test a concept, dotted red lines between concepts that are often confused. The colour
+is your level (grey not started, blue seen / understood, green applied, teal retained, orange exam-ready).
+Scroll or pinch to zoom, drag to move, use **+ / − / fit**, and tap a concept to open it.
+
 ### 6.4 Reviews and repairs
 
 - **Reviews**: every Applied concept is scheduled for review by a spaced-repetition algorithm (FSRS).
@@ -375,7 +389,10 @@ Every 3 days Claude builds one cumulative test of everything studied so far, spl
 plus questions in the style of IITJ quizzes and assignments.
 
 1. When it is due it appears under **Due today → Take the test**. Starting it starts a timed Execution OS
-   focus session with Focus Guard on.
+   focus session with Focus Guard on. **The clock is real:** a live countdown shows the time left, you get
+   a warning at 1 minute, and at zero your answers are submitted automatically. Answers save every
+   20 seconds — if the app closes or the phone dies, reopen the test to continue, and when the time is up
+   the PC submits your last saved answers by itself. Reopening never restarts the clock.
 2. **Written part**: type your answer, or write on paper and add a **photo**.
 3. **Programming part**: write Python; hidden tests run on your PC and score it at once.
 4. **Submit**. Claude grades the written part against a rubric fixed before the test (the Grade job, within
@@ -479,6 +496,8 @@ change Claude made can be undone with the vault's git history.
 | Study tab: "Create your Study Vault on the PC" | Open the Study tab on the PC (not the phone) and create it |
 | Next up is empty | Add the syllabus and the assets, then run the Ingest job (5.5, 5.7) |
 | "No resource yet" on a concept | Curation runs ahead of your queue every night; run *Curate* now from Study setup |
+| "times not verified · whole video" | The video has no transcript or chapters that back the chosen part, so the whole video plays. Nothing to fix; /curate may find a better video |
+| Speak button missing | The browser or phone has no speech recognition; type instead (Android app: allow the microphone when asked) |
 | "No check pack yet" | Run *Packs* (part of Ingest) — Claude writes packs before you reach a concept |
 | A job failed | Open its log from the banner; the most common cause is Claude Code not signed in (`claude` in PowerShell, then `/login`) |
 | Claude Code: not found | Install Claude Code, open a new PowerShell, `claude --version` |
@@ -520,6 +539,7 @@ The `study` command (in PowerShell inside the vault: `.\study.cmd <command>`; `-
 | `lab run <lab> <file.py>` | run a lab |
 | `test plan / due / check / start / submit / finalize / report / list` | the 3-day test |
 | `run-job <job> [--force]` · `jobs` · `schedule [--dry-run] [--remove] [--status]` | Claude jobs |
+| `transcript <youtube-url> [--text]` | the video's transcript and chapters with timestamps (what /curate cuts segments from) |
 | `proposals [apply|reject <id>]` · `undo [<n>]` · `capture "<text>"` · `portfolio` · `dedupe` · `state` · `commit` | the rest |
 
 ---
