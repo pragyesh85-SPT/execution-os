@@ -7,4 +7,3 @@ Probability") with fake slides, a transcript, a quiz, notes and a syllabus — n
 - `incoming/` — what a course download looks like (ingested with `study ingest`)
 - `syllabus/` — an outline pasted by hand
 - `claude/` — the files the headless jobs would write (concept cards, paths, packs, labs, questions)
-- `tests/` — a 3-day test paper with hidden programming tests and its grading file

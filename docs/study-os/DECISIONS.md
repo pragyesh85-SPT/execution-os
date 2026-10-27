@@ -87,3 +87,40 @@ named file; none of them changes the concept.
   lecture number; `study iitj lecture <asset>` marks one watched.
 - **D-23 Summary churn.** `studySummary.minutesToday` is floored to 5 minutes and the record is rewritten
   only when something in it changed, so phones are not woken every minute.
+
+## Quick Tutor, labs, tests and jobs (P2)
+
+- **D-24 No provider by default → built-in matcher.** Until a provider is set, the tutor still answers:
+  numbers and choices are graded exactly, explanations and short answers by the pack's keywords. Those
+  verdicts are always *low confidence*, so Claude re-grades every one of them that night. *Why:* the
+  learning loop works on day 1 without a key, and Claude still decides what is correct.
+- **D-25 The tutor can never pass anything by itself.** Its JSON is validated: ids not in the pack are
+  dropped, every key point not covered counts as missed, and the pass (≥ 80 % covered, nothing wrong) is
+  computed by the engine. Numbers and multiple choice never go to the model at all.
+- **D-26 Provider config** lives in `study.json` on the PC (`study tutor set …` or `/api/study/tutorConfig`
+  from the PC only); the key is never returned to any device. Ollama = OpenAI-compatible at
+  `http://localhost:11434/v1`. Spend is estimated at 4 characters per token with the prices you set
+  (0 for Ollama); at the monthly cap the tutor falls back to the matcher until the next month.
+- **D-27 Audit sample** = every low-confidence verdict plus a deterministic ~1 in 5 of the others.
+  A re-grade is an overlay on the original evidence (nothing is rewritten), so mastery and reviews follow
+  at once; a tutor-labelled mistake is dropped when Claude says the answer was right.
+- **D-28 Hints only** while a concept's graded assignment is live: wrong answers get a hint instead of
+  the expected answer, missed key points are not spelled out, and the prompt forbids solutions.
+- **D-29 Labs and test code run with `python -I`** in a temp folder with a minimal environment and a
+  timeout (default 20 s, tests 30 s). Python is found as `STUDY_PYTHON`, `python3`, `python`, `py -3`.
+  Your latest lab code is kept as `labs/<id>/my_solution.py` (portfolio link). Claude writes a reference
+  `solution.py` and proves the hidden tests are passable (`study lab run`, `study test check`).
+- **D-30 Test schedule.** First test on studyStart + 3 days, then 3 days after the previous test was
+  taken. Per subject: 5 written items (40/25/20/15 by largest remainder; empty buckets hand their share
+  on), 1–2 IITJ-style, 1 programming. An item is "correct" evidence at ≥ 60 % of its marks; every test
+  item is timed evidence and transfer items (or the transfer bucket) count as transfer.
+- **D-31 Fallback paper.** `study test build --auto` builds a paper from the question bank, packs and
+  labs when Claude cannot run; `/build-test` normally writes it. Either way `study test check` must pass.
+- **D-32 Splitting a test by subject.** `study test start <id> --subject s` serves that part with a
+  proportional time; the test counts as submitted when every subject's part is in.
+- **D-33 Job runner.** `study run-job <job>` feeds the command file (front matter stripped) to
+  `claude -p` on stdin with `--model <front matter model> --permission-mode acceptEdits`; tool access
+  comes from the vault's `.claude/settings.json` (study CLI, file tools, web; `study.db`, backups,
+  originals and `git push` denied). Chains: ingest → curate → packs → labs; day-end → curate. A failure
+  stops the chain. Grade runs every 30 minutes but only when a test is submitted (instead of the hub
+  spawning Claude). Tasks run while you are signed in to Windows.

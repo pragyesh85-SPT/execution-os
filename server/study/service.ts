@@ -12,20 +12,16 @@ import { ingestFolder, listAssets, pending, type IngestOptions } from './ingest'
 import { loadModel, reindex, writeStubs, type IndexResult, type Model } from './indexer';
 import { renderState } from './state';
 import { StudyDb } from './store';
+import { StudyError } from './errors';
+import { noTutor, Tutor, type TutorSetup } from './tutor';
+import { Exams } from './exam';
+import { runHidden } from './labs';
 import { isVault, layout, readVaultConfig, SUBJECT_DIRS } from './vault';
 
 // StudyService — every Study OS operation, used by the hub API, the `study` CLI (directly when the hub
 // is not running) and the MCP tools. The hub is the only long-lived owner; everything else is a client.
 
-export class StudyError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-    this.name = 'StudyError';
-  }
-}
+export { StudyError };
 
 export interface StudyServiceOptions {
   vault: string;
@@ -33,6 +29,7 @@ export interface StudyServiceOptions {
   log?: (m: string) => void;
   eos?: EosBridge; // Execution OS (absent when the CLI runs without the hub)
   driftMinutes?: number;
+  tutor?: () => TutorSetup; // Quick Tutor provider + cap (read on every call, so Settings apply at once)
 }
 
 export type State = ConceptState & { card: FsrsCard | null };
@@ -61,6 +58,8 @@ export class StudyService {
   readonly say: (m: string) => void; // hub log
   eos?: EosBridge;
   driftMinutes: number;
+  readonly tutor: Tutor;
+  readonly exams: Exams;
   private cache: { model: Model; events?: StudyEvent[]; states?: Map<string, State> } | null = null;
 
   constructor(opts: StudyServiceOptions) {
@@ -71,6 +70,8 @@ export class StudyService {
     this.eos = opts.eos;
     this.driftMinutes = opts.driftMinutes ?? 10;
     this.db = new StudyDb(layout(this.root).db);
+    this.tutor = new Tutor(this, opts.tutor ?? noTutor);
+    this.exams = new Exams(this);
     this.reindex();
   }
 
@@ -98,6 +99,19 @@ export class StudyService {
 
   private invalidate() {
     if (this.cache) this.cache = { model: this.cache.model };
+  }
+
+  /** After a re-grade: evidence must be read again. */
+  invalidateEvents() {
+    this.invalidate();
+  }
+
+  /** The check pack of a concept, for the tutor and tests. */
+  packFor(id: string): { concept: string; title: string; pack: CheckPack; hintsOnly: boolean } {
+    const c = this.concept(id);
+    const pack = this.model().packs.get(c.id);
+    if (!pack) throw new StudyError(`No check pack for "${c.title}" yet — Claude writes it (/packs) before you reach this concept.`, 409);
+    return { concept: c.id, title: c.title, pack, hintsOnly: this.hintsOnly(c) };
   }
 
   /** Concepts that count for coverage: every card of the semester except merged duplicates. */
@@ -137,10 +151,17 @@ export class StudyService {
     if (!this.cache) this.model();
     if (!this.cache!.events) {
       const finals = new Map((this.db.sql.prepare('SELECT id, final FROM verdicts WHERE final IS NOT NULL').all() as { id: string; final: string }[]).map((r) => [r.id, JSON.parse(r.final) as Record<string, unknown>]));
-      this.cache!.events = this.db.events().map((e) => {
-        const v = typeof e.data.verdict === 'string' ? finals.get(e.data.verdict) : undefined;
-        return v ? { ...e, data: { ...e.data, ...v, regraded: true } } : e;
-      });
+      this.cache!.events = this.db
+        .events()
+        .filter((e) => {
+          // a mistake the tutor saw is dropped when Claude's re-grade says the answer was right
+          const v = e.kind === 'mistake' && e.source === 'tutor' && typeof e.data.verdict === 'string' ? finals.get(e.data.verdict) : undefined;
+          return !(v && (v.pass === true || v.correct === true));
+        })
+        .map((e) => {
+          const v = e.kind !== 'mistake' && typeof e.data.verdict === 'string' ? finals.get(e.data.verdict) : undefined;
+          return v ? { ...e, data: { ...e.data, ...v, regraded: true } } : e;
+        });
     }
     return this.cache!.events;
   }
@@ -210,9 +231,25 @@ export class StudyService {
     });
   }
 
-  /** The 3-day test that is due (P2 fills this in). */
+  /** A released 3-day test waiting to be taken. */
   testDue(): { id: string; title: string; minutes: number } | null {
-    return null;
+    return this.model().assessment ? this.exams.due() : null;
+  }
+
+  // ---------- labs ----------
+
+  /** Run your code against the lab's hidden tests on this PC. Your latest code is kept as my_solution.py. */
+  async runLab(p: { lab?: string; concept?: string; code: string }) {
+    const m = this.model();
+    const lab = p.lab ? m.labsById.get(p.lab) : p.concept ? m.labs.get(this.concept(p.concept).id) : undefined;
+    if (!lab) throw new StudyError(`No lab ${p.lab ?? `for ${p.concept}`} yet — Claude writes labs with /labs.`, 404);
+    if (!p.code.trim()) throw new StudyError('Paste or write your code first.');
+    if (p.code.length > 200_000) throw new StudyError('That code is larger than 200 KB.');
+    const dir = join(this.root, lab.hiddenTests.split('/').slice(0, -1).join('/'));
+    writeFileSync(join(dir, 'my_solution.py'), p.code);
+    const r = await runHidden(p.code, join(this.root, lab.hiddenTests), lab.entry, lab.timeoutSec);
+    this.log({ kind: 'lab', concept: lab.concept, data: { lab: lab.id, passed: r.ok, passedTests: r.passed, total: r.total, ...(r.error ? { output: r.error } : {}) }, source: 'lab' });
+    return { lab: lab.id, ok: r.ok, passed: r.passed, total: r.total, tests: r.tests, ...(r.error ? { error: r.error } : {}), ms: r.ms, rung: this.states().get(lab.concept)?.rung };
   }
 
   queue(limit?: number): QueueItem[] {
@@ -419,7 +456,7 @@ export class StudyService {
   }
 
   /** Stop the live session; its Execution OS proof fills itself from what happened in it. */
-  stop(p: { note?: string; auto?: boolean } = {}) {
+  stop(p: { note?: string; auto?: boolean; status?: 'done' | 'partial' } = {}) {
     const live = this.liveSession();
     if (!live) throw new StudyError('No study session is running.', 409);
     const now = this.clock();
@@ -427,8 +464,8 @@ export class StudyService {
     this.db.sql.prepare('UPDATE sessions SET end = ? WHERE id = ?').run(now, live.id);
     const meta = JSON.parse(live.summary ?? '{}') as { label?: string; how?: EosSessionRef['how'] };
     if (this.eos && live.eos_session && live.eos_date && live.eos_block) {
-      const note = [report.line, p.note?.trim()].filter(Boolean).join(' — ');
-      this.eos.stop({ date: live.eos_date, blockId: live.eos_block, sessionId: live.eos_session, how: meta.how ?? 'block' }, { status: report.moved.length && !p.auto ? 'done' : 'partial', note, link: `#study/session/${live.id}` });
+      const note = live.kind === 'test' ? `3-day test ${live.test_id ?? ''}: ${p.note?.trim() || 'stopped'}`.replace('  ', ' ') : [report.line, p.note?.trim()].filter(Boolean).join(' — ');
+      this.eos.stop({ date: live.eos_date, blockId: live.eos_block, sessionId: live.eos_session, how: meta.how ?? 'block' }, { status: p.status ?? (report.moved.length && !p.auto ? 'done' : 'partial'), note, link: `#study/session/${live.id}` });
     }
     this.db.sql.prepare('UPDATE sessions SET summary = ? WHERE id = ?').run(JSON.stringify({ ...JSON.parse(live.summary ?? '{}'), report }), live.id);
     this.invalidate();

@@ -1,5 +1,6 @@
 import type { EventKind, EventSource } from '../../src/core/study/types';
-import { StudyError, type StudyService } from './service';
+import { StudyError } from './errors';
+import type { StudyService } from './service';
 
 // The Study API: one method table, served by the hub at /api/study/<method> and called directly by the
 // `study` CLI when the hub is not running. Same table, same code path, so the CLI and the app can
@@ -68,4 +69,50 @@ export const METHODS: Record<string, Method> = {
   assetDone: { write: true, local: true, run: (svc, p) => svc.assetDone({ id: str(p.id, 'id', 100) }) },
   deadlineSubmit: { write: true, run: (svc, p) => svc.deadlineSubmit({ id: str(p.id, 'id', 80) }) },
   iitjLecture: { write: true, run: (svc, p) => svc.iitjLecture({ asset: str(p.asset, 'asset', 100), concept: optStr(p.concept, 80) }) },
+
+  // ---------- Quick Tutor (P2) ----------
+  tutorStatus: { run: (svc) => svc.tutor.status() },
+  tutorExplain: { write: true, run: (svc, p) => svc.tutor.explain({ concept: str(p.concept, 'concept', 80), text: str(p.text, 'text', 8000) }) },
+  tutorAnswer: { write: true, run: (svc, p) => svc.tutor.answer({ concept: str(p.concept, 'concept', 80), question: str(p.question, 'question', 80), answer: str(p.answer, 'answer', 2000), repair: optStr(p.repair, 200) }) },
+  tutorAudit: { local: true, run: (svc, p) => svc.tutor.audit({ limit: optNum(p.limit, 'limit', 1, 1000) }) },
+  tutorRegrade: {
+    write: true,
+    local: true,
+    run: (svc, p) =>
+      svc.tutor.regrade({
+        id: str(p.id, 'id', 80),
+        agree: p.agree === true,
+        coverage: optNum(p.coverage, 'coverage', 0, 1),
+        pass: typeof p.pass === 'boolean' ? p.pass : undefined,
+        correct: typeof p.correct === 'boolean' ? p.correct : undefined,
+        note: optStr(p.note, 500),
+        mistakes: Array.isArray(p.mistakes) ? (p.mistakes as { cls: never; detail?: string }[]).slice(0, 5) : undefined,
+      }),
+  },
+
+  // ---------- labs ----------
+  labRun: { write: true, run: (svc, p) => svc.runLab({ lab: optStr(p.lab, 80), concept: optStr(p.concept, 80), code: typeof p.code === 'string' ? p.code : '' }) },
+
+  // ---------- the 3-day test ----------
+  tests: { run: (svc) => ({ tests: svc.exams.list(), nextDue: svc.model().assessment ? svc.exams.nextDue() : null }) },
+  testPlan: { run: (svc, p) => svc.exams.plan({ written: optNum(p.written, 'written', 1, 20), programming: optNum(p.programming, 'programming', 0, 5) }) },
+  testBuildDue: { run: (svc) => svc.exams.buildDue() },
+  testsAwaitingGrade: { run: (svc) => ({ tests: svc.exams.awaitingGrade() }) },
+  testBuild: { write: true, local: true, run: (svc, p) => svc.exams.build({ id: optStr(p.id, 10) }) },
+  testCheck: { run: (svc, p) => svc.exams.check({ id: str(p.id, 'id', 10) }) },
+  testStart: { write: true, run: (svc, p) => svc.exams.start({ id: str(p.id, 'id', 10), subject: optStr(p.subject, 80) }) },
+  testSubmit: { write: true, run: (svc, p) => svc.exams.submit({ id: str(p.id, 'id', 10), subject: optStr(p.subject, 80), answers: obj(p.answers) as Record<string, { text?: string; image?: string; code?: string }> }) },
+  testFinalize: { write: true, local: true, run: (svc, p) => svc.exams.finalize({ id: str(p.id, 'id', 10) }) },
+  testReport: { run: (svc, p) => svc.exams.report({ id: str(p.id, 'id', 10) }) },
+
+  // ---------- headless jobs ----------
+  jobs: { run: (svc) => ({ jobs: svc.jobs() }) },
+  jobReport: {
+    write: true,
+    local: true,
+    run: (svc, p) => {
+      svc.db.sql.prepare('INSERT INTO jobs (job, ok, started, ended, log, note) VALUES (?, ?, ?, ?, ?, ?)').run(str(p.job, 'job', 40), p.ok === true ? 1 : 0, optNum(p.started, 'started') ?? null, svc.clock(), optStr(p.log, 1000) ?? null, optStr(p.note, 1000) ?? null);
+      return { ok: true };
+    },
+  },
 };

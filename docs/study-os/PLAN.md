@@ -56,3 +56,25 @@ Goal: point the system at a folder of assets and get a real queue, real numbers 
    `deadline submit`, `iitj lecture`, `state` (writes `STATE.md`), `assets`, `reindex`.
 7. Synthetic sample subject in `tests/fixtures/study-sample/` (slides as md + pptx + docx, transcript,
    quiz, syllabus, plus the files Claude would write) and an end-to-end ingest test.
+
+---
+
+## P2 — Quick Tutor, labs, the 3-day test and headless jobs
+
+Goal: instant checks graded only against Claude's packs, labs and tests graded by hidden tests on this PC,
+and every heavy job runnable by Task Scheduler (registered by the owner, not by the build).
+
+1. `src/core/study/tutor.ts` (pure): the pack-grounded prompts, strict verdict validation (ids must come
+   from the pack — nothing invented), deterministic grading of numeric / mcq answers, and a keyword
+   matcher used when no provider is set (always low confidence → re-graded by Claude that night).
+2. `server/study/tutor.ts`: providers from `src/lib/ai.ts` (Claude API, OpenAI, Gemini, OpenAI-compatible,
+   Ollama on this PC), none by default; monthly spend cap; verdict log with the raw answer; nightly audit
+   list (all low-confidence + a sample) and `regrade`, which corrects mastery through the evidence overlay.
+3. `server/study/labs.ts`: run submitted Python against hidden tests (`python -I`, temp folder, timeout).
+4. `server/study/exam.ts`: test due date, blueprint (40 / 25 / 20 / 15 per subject + IITJ-style items),
+   fallback paper builder from the bank, start (timed Execution OS focus session), submit per subject
+   (programming graded at once), finalize from Claude's `grading.yaml`, report (`report.md`).
+4. Vault template: `.claude/commands/` for ingest, curate, packs, labs, day-end, build-test, grade,
+   week-end (model sonnet) and study-now (interactive); `.claude/settings.json` permissions.
+5. `study run-job <job>`: gate (only when there is work), `claude -p` per command, log file, job row,
+   `STATE.md`, vault commit. `npm run study:schedule` registers the Windows tasks (`--dry-run` prints them).

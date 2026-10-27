@@ -1,11 +1,13 @@
 import '../quiet';
 import { DatabaseSync } from 'node:sqlite';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { METHODS } from './api';
 import { StudyConfigFile } from './config';
 import { StudyService } from './service';
+import { providerFrom } from './tutor';
+import { runJob } from './jobs';
 import { commitVault, defaultVaultPath, initVault, isVault } from './vault';
 import type { QueueItem } from '../../src/core/study/types';
 
@@ -82,7 +84,8 @@ export async function connect(env: CliEnv, vault: string): Promise<Client> {
   }
   const flag = flagInDb(env.eosDb ?? eosDbPath());
   if (flag === false) throw new CliError('Study OS is switched off. Turn it on in Execution OS → Settings → Labs → Study OS.');
-  const svc = new StudyService({ vault, clock: env.clock });
+  const tutorCfg = new StudyConfigFile(env.eosDb ?? eosDbPath());
+  const svc = new StudyService({ vault, clock: env.clock, tutor: () => ({ provider: providerFrom(tutorCfg.tutor()), cfg: tutorCfg.tutor() }) });
   return {
     mode: 'local',
     async call<T>(method: string, params: Record<string, unknown> = {}) {
@@ -315,6 +318,136 @@ export const COMMANDS: Record<string, Cmd> = {
     async run(args, { client, out }) {
       if (!args[0]) throw new CliError('Usage: study session <id>');
       out(JSON.stringify(await (await client()).call('session', { id: args[0] }), null, 2));
+    },
+  },
+  tutor: {
+    usage: "study tutor status|audit|regrade <id> '<json>'|set <provider> <model> [--key k] [--url u] [--cap usd]",
+    help: 'Quick Tutor: provider and spend, verdicts to re-grade tonight, your re-grade.',
+    async run(args, { client, out, json, config }) {
+      const { pos, flags } = parseFlags(args);
+      const sub = pos[0] ?? 'status';
+      if (sub === 'set') {
+        const [, provider, model] = pos;
+        const P = ['anthropic', 'openai', 'gemini', 'compatible', 'ollama', 'none'];
+        if (!provider || !P.includes(provider)) throw new CliError(`Usage: study tutor set <${P.join('|')}> <model> [--key k] [--url u] [--cap usd]`);
+        const cur = config.tutor();
+        const next = {
+          ...cur,
+          provider: provider as typeof cur.provider,
+          model: model ?? cur.model,
+          ...(typeof flags.key === 'string' ? { apiKey: flags.key } : {}),
+          ...(typeof flags.url === 'string' ? { baseUrl: flags.url } : {}),
+          ...(typeof flags.cap === 'string' ? { monthlyCapUsd: Number(flags.cap) } : {}),
+          ...(typeof flags['price-in'] === 'string' ? { usdPerMTokIn: Number(flags['price-in']) } : {}),
+          ...(typeof flags['price-out'] === 'string' ? { usdPerMTokOut: Number(flags['price-out']) } : {}),
+        };
+        config.write({ tutor: next });
+        out(`Quick Tutor: ${next.provider}${next.model ? ` · ${next.model}` : ''} · cap $${next.monthlyCapUsd}/month · key ${next.apiKey ? 'saved on this PC only' : 'none'}. Saved in ${config.file}.`);
+        return;
+      }
+      const c = await client();
+      if (sub === 'status') {
+        const s = (await c.call('tutorStatus')) as { provider: string | null; monthlyCapUsd: number; spentUsd: number; calls: number; capReached: boolean };
+        return print(out, json, s, () =>
+          s.provider
+            ? `Quick Tutor: ${s.provider} · this month ${s.calls} call(s), about $${s.spentUsd} of $${s.monthlyCapUsd}${s.capReached ? ' — CAP REACHED (built-in matcher until next month)' : ''}`
+            : 'Quick Tutor: no provider set — the built-in keyword matcher answers (low confidence; Claude re-grades nightly). Set one: study tutor set ollama llama3.2',
+        );
+      }
+      if (sub === 'audit') return out(JSON.stringify(await c.call('tutorAudit', { limit: flags.limit ? Number(flags.limit) : undefined }), null, 2));
+      if (sub === 'regrade') {
+        if (!pos[1] || !pos[2]) throw new CliError(`Usage: study tutor regrade <verdict-id> '{"agree":true}' | '{"coverage":0.6,"pass":false}' | '{"correct":true}'`);
+        let body: Record<string, unknown>;
+        try {
+          body = JSON.parse(pos[2]) as Record<string, unknown>;
+        } catch {
+          throw new CliError('The re-grade must be JSON.');
+        }
+        return print(out, json, await c.call('tutorRegrade', { ...body, id: pos[1] }), () => `Re-graded ${pos[1]}.`);
+      }
+      throw new CliError('Usage: study tutor status|audit|regrade|set');
+    },
+  },
+  lab: {
+    usage: 'study lab run <lab-id|concept> <file.py>',
+    help: 'Run your code against the hidden tests of a lab (on this PC).',
+    async run(args, { client, out, json }) {
+      if (args[0] !== 'run' || !args[1] || !args[2]) throw new CliError('Usage: study lab run <lab-id|concept> <file.py>');
+      const code = readFileSync(resolve(args[2]), 'utf8');
+      const c = await client();
+      const list = (await c.call('concepts')) as { concepts: { id: string }[] };
+      const isConcept = list.concepts.some((x) => x.id === args[1]);
+      const r = (await c.call('labRun', { ...(isConcept ? { concept: args[1] } : { lab: args[1] }), code })) as { ok: boolean; passed: number; total: number; tests: { name: string; ok: boolean; error?: string }[]; error?: string };
+      print(out, json, r, () => [`${r.ok ? 'PASSED' : 'NOT YET'} — ${r.passed}/${r.total} hidden tests`, ...r.tests.map((t) => `  ${t.ok ? '✓' : '✗'} ${t.name}${t.error ? `: ${t.error}` : ''}`), ...(r.error ? [`  ${r.error}`] : [])].join('\n'));
+    },
+  },
+  test: {
+    usage: 'study test plan|due|build --auto|check <id>|start <id> [--subject s]|submit <id> <answers.json>|finalize <id>|report <id>|list',
+    help: 'The 3-day test: blueprint, paper, taking it, grading, report.',
+    async run(args, { client, out, json }) {
+      const { pos, flags } = parseFlags(args);
+      const [sub = 'list', id] = pos;
+      const c = await client();
+      const need = () => {
+        if (!id) throw new CliError(`Usage: study test ${sub} <YYYY-MM-DD>`);
+        return id;
+      };
+      switch (sub) {
+        case 'plan':
+          return out(JSON.stringify(await c.call('testPlan', { written: flags.written ? Number(flags.written) : undefined }), null, 2));
+        case 'due':
+          return out(JSON.stringify(await c.call('testBuildDue'), null, 2));
+        case 'build': {
+          if (flags.auto !== true) throw new CliError('/build-test writes the paper; for the built-in fallback run: study test build --auto');
+          const r = (await c.call('testBuild', { id })) as { id: string; items: number; file: string };
+          return print(out, json, r, () => `Built ${r.file} with ${r.items} item(s). Check it: study test check ${r.id}`);
+        }
+        case 'check': {
+          const r = (await c.call('testCheck', { id: need() })) as { ok: boolean; problems: string[]; items: number; marks: number };
+          return print(out, json, r, () => (r.ok ? `OK — ${r.items} items, ${r.marks} marks.` : ['Problems:', ...r.problems.map((p) => `  - ${p}`)].join('\n')));
+        }
+        case 'start':
+          return out(JSON.stringify(await c.call('testStart', { id: need(), subject: flags.subject }), null, 2));
+        case 'submit': {
+          const file = pos[2];
+          if (!file) throw new CliError('Usage: study test submit <id> <answers.json>   ({"<item>": {"text": "…"} | {"code": "…"}})');
+          const answers = JSON.parse(readFileSync(resolve(file), 'utf8')) as Record<string, unknown>;
+          return out(JSON.stringify(await c.call('testSubmit', { id: need(), subject: flags.subject, answers }), null, 2));
+        }
+        case 'finalize': {
+          const r = (await c.call('testFinalize', { id: need() })) as { total: { marks: number; max: number; pct: number } };
+          return print(out, json, r, () => `Test ${id}: ${r.total.marks}/${r.total.max} (${Math.round(r.total.pct * 100)}%). Report: tests/${id}/report.md`);
+        }
+        case 'report': {
+          const r = (await c.call('testReport', { id: need() })) as { markdown: string | null };
+          return print(out, json, r, () => r.markdown ?? JSON.stringify(r, null, 2));
+        }
+        case 'list': {
+          const r = (await c.call('tests')) as { tests: { id: string; status: string; items: number; pct: number | null }[]; nextDue: string | null };
+          return print(out, json, r, () => [...r.tests.map((t) => `${t.id}  ${t.status.padEnd(9)} ${t.items} items${t.pct !== null ? ` · ${Math.round(t.pct * 100)}%` : ''}`), `Next test due: ${r.nextDue ?? 'unknown'}`].join('\n'));
+        }
+        default:
+          throw new CliError(COMMANDS.test.usage);
+      }
+    },
+  },
+  'run-job': {
+    usage: 'study run-job <ingest|curate|packs|labs|day-end|build-test|grade|week-end> [--force]',
+    help: 'Run a headless Claude job now (what Task Scheduler runs). Skips when there is no work.',
+    async run(args, { client, out, json, vault, setExit }) {
+      const { pos, flags } = parseFlags(args);
+      if (!pos[0]) throw new CliError(COMMANDS['run-job'].usage);
+      const r = await runJob(pos[0], { vault, client: await client(), force: flags.force === true, log: json ? () => {} : out });
+      if (r.ran && !r.ok) setExit(1);
+      print(out, json, r, () => (r.ran ? `Job ${r.job} ${r.ok ? 'ok' : 'FAILED'} — ${r.steps.map((s) => `/${s.command} ${s.ok ? 'ok' : `exit ${s.code}`}`).join(', ')}. Log: ${r.log}` : `Job ${r.job} skipped: ${r.reason}.`));
+    },
+  },
+  jobs: {
+    usage: 'study jobs',
+    help: 'The last run of every headless job.',
+    async run(_a, { client, out, json }) {
+      const r = (await (await client()).call('jobs')) as { jobs: { job: string; ok: boolean; ended: number; log: string | null }[] };
+      print(out, json, r, () => r.jobs.map((j) => `${j.job.padEnd(11)} ${j.ok ? 'ok    ' : 'FAILED'} ${new Date(j.ended).toLocaleString()}  ${j.log ?? ''}`).join('\n') || 'No job has run yet.');
     },
   },
   commit: {

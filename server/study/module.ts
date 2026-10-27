@@ -2,10 +2,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isOn } from '../../src/core/features';
 import type { HubDb } from '../db';
 import { METHODS, type CallCtx } from './api';
-import { publicTutor, StudyConfigFile } from './config';
+import { publicTutor, StudyConfigFile, type TutorConfig } from './config';
+import { providerFrom, type TutorProvider } from './tutor';
 import { hubBridge } from './eos';
 import { watchVault } from './indexer';
-import { StudyError, StudyService } from './service';
+import { StudyError } from './errors';
+import { StudyService } from './service';
 import { isVault } from './vault';
 
 // Study OS inside the Execution OS hub. Nothing happens while the "study" flag is off: no vault is
@@ -17,6 +19,7 @@ export interface StudyModuleOptions {
   vault?: string; // fixed vault (tests); otherwise EOS_STUDY_VAULT / study.json / default
   clock?: () => number;
   watch?: boolean; // re-index on file changes (default true)
+  tutor?: TutorProvider; // tests: a mock provider instead of the one in study.json
   log?: (m: string) => void;
 }
 
@@ -53,7 +56,7 @@ export class StudyModule {
     const vault = this.vaultPath();
     if (this.svc && this.svc.root !== vault) this.stop();
     if (!this.svc && isVault(vault)) {
-      const svc = new StudyService({ vault, clock: this.opts.clock, log: this.log, eos: hubBridge(this.opts.hubDb, this.opts.clock), driftMinutes: this.config.read().driftMinutes });
+      const svc = new StudyService({ vault, clock: this.opts.clock, log: this.log, eos: hubBridge(this.opts.hubDb, this.opts.clock), driftMinutes: this.config.read().driftMinutes, tutor: () => this.tutorSetup() });
       this.svc = svc;
       try {
         const b = svc.db.backupIfDue();
@@ -99,6 +102,11 @@ export class StudyModule {
     }
   }
 
+  tutorSetup() {
+    const cfg = this.config.tutor();
+    return { provider: this.opts.tutor ?? providerFrom(cfg), cfg };
+  }
+
   setup() {
     const vault = this.vaultPath();
     return { enabled: this.enabled, vault, exists: isVault(vault), tutor: publicTutor(this.config.tutor()) };
@@ -123,6 +131,33 @@ export class StudyModule {
           this.stop();
         }
         return send(res, 200, this.setup());
+      }
+      if (name === 'tutorConfig') {
+        // The provider key stays on this PC (study.json); it is never returned to any device.
+        if (!ctx.local) return send(res, 403, { error: 'Only available on the hub PC' });
+        if (req.method === 'POST') {
+          const cur = this.config.tutor();
+          const next: TutorConfig = { ...cur };
+          const P = ['anthropic', 'openai', 'gemini', 'compatible', 'ollama', 'none'];
+          if (typeof params.provider === 'string' && P.includes(params.provider)) next.provider = params.provider as TutorConfig['provider'];
+          if (typeof params.model === 'string') next.model = params.model.trim().slice(0, 100);
+          if (typeof params.baseUrl === 'string') next.baseUrl = params.baseUrl.trim().slice(0, 300);
+          if (typeof params.apiKey === 'string') next.apiKey = params.apiKey.trim() || undefined;
+          for (const k of ['monthlyCapUsd', 'usdPerMTokIn', 'usdPerMTokOut'] as const) if (typeof params[k] === 'number' && params[k] >= 0 && params[k] < 10_000) next[k] = params[k] as number;
+          this.config.write({ tutor: next });
+        }
+        return send(res, 200, publicTutor(this.config.tutor()));
+      }
+      if (name === 'tutorTest') {
+        if (!ctx.local) return send(res, 403, { error: 'Only available on the hub PC' });
+        const pr = this.tutorSetup().provider;
+        if (!pr) return send(res, 409, { error: 'No Quick Tutor provider is set.' });
+        try {
+          const reply = await pr.complete('You are a connectivity check.', 'Reply with exactly: {"ok":true}');
+          return send(res, 200, { ok: true, provider: pr.name, reply: reply.slice(0, 120) });
+        } catch (e) {
+          return send(res, 502, { error: (e as Error).message, provider: pr.name });
+        }
       }
 
       const m = METHODS[name];
