@@ -6,9 +6,22 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
-### Added
+## [2.1.0] - 2026-10-28
 
-- Study OS (behind the `study` flag in Labs): Study Vault and `study` CLI, ingestion, learning engine (ladder, mastery, FSRS reviews, repairs, pace), Quick Tutor, Python labs, the 3-day test, headless Claude jobs and Task Scheduler script, Study tab, Today Study card, MCP study tools, portfolio. Off by default; nothing changes while it is off.
+### Added
+- **Study OS** (Settings → Labs → Study OS, off by default): a study module run from a private Study Vault on your PC.
+  - Set up from the app: **Study → Create my Study Vault**, then **Study setup** to add course assets, choose the Quick Tutor provider and register the nightly Claude jobs.
+  - Ingestion of slides, transcripts, notes, quizzes, assignments and PYQs (pptx, docx, subtitles, notebooks, PDFs through Claude) into concepts, with the full syllabus as concept stubs from day 1.
+  - The Study tab: next video with an embedded player (start–end), explain (typed or spoken), quick check, Python labs with hidden tests, spaced reviews, repair items after the same mistake twice, the cumulative 3-day test (written + programming, photo answers) and its report, subject coverage and readiness, IITJ track, pace and projected ready date.
+  - Quick Tutor that grades only against check packs Claude wrote in advance (Ollama, Claude, OpenAI, Gemini or OpenAI-compatible; none by default, monthly cap), re-checked by Claude every night.
+  - Headless Claude jobs (ingest, curate, packs, labs, day-end, build-test, grade, week-end) with Windows Task Scheduler.
+  - Execution OS link: Start/Stop anywhere shows "Studying now", runs the timer, turns Focus Guard on and fills the proof; idle time marks drift; IITJ deadlines become tasks; a Study card on Today (works offline).
+  - Claude (MCP): study_overview, study_next, study_progress, study_test_report, study_capture, study_log_attempt, study_propose (with undo).
+  - `study` command line and a weekly private learning portfolio.
+- **User manual** for Execution OS and Study OS: docs/USER_MANUAL.md.
+
+### Changed
+- With Study OS on, the phone bar shows Study instead of Calendar (Calendar moves to More). With it off, nothing changes.
 
 ## [2.0.0] - 2026-10-25
 
