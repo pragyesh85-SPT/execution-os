@@ -105,6 +105,19 @@ export const METHODS: Record<string, Method> = {
   testFinalize: { write: true, local: true, run: (svc, p) => svc.exams.finalize({ id: str(p.id, 'id', 10) }) },
   testReport: { run: (svc, p) => svc.exams.report({ id: str(p.id, 'id', 10) }) },
 
+  // ---------- proposals, audit and undo (P3) ----------
+  proposals: { run: (svc, p) => ({ proposals: svc.proposals.list({ status: optStr(p.status, 20) }) }) },
+  proposalApply: { write: true, run: (svc, p, ctx) => svc.proposals.apply({ id: str(p.id, 'id', 80), by: ctx.device }) },
+  proposalReject: { write: true, run: (svc, p) => svc.proposals.reject({ id: str(p.id, 'id', 80) }) },
+  changes: { run: (svc) => ({ changes: svc.proposals.auditList() }) },
+  undo: { write: true, run: (svc, p) => svc.proposals.undo({ seq: num(p.seq, 'seq', 1) }) },
+
+  // ---------- phone, portfolio, graph ----------
+  capture: { write: true, run: (svc, p, ctx) => svc.capture({ text: typeof p.text === 'string' ? p.text : '', url: optStr(p.url, 2000), subject: optStr(p.subject, 80), from: ctx.device }) },
+  offlinePack: { run: (svc) => svc.offlinePack() },
+  portfolio: { write: true, local: true, run: (svc) => svc.portfolio() },
+  dedupe: { run: (svc) => svc.dedupe() },
+
   // ---------- headless jobs ----------
   jobs: { run: (svc) => ({ jobs: svc.jobs() }) },
   jobReport: {

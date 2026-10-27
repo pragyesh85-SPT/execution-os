@@ -45,3 +45,15 @@ export { addDays };
 
 export const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A YouTube URL → its video id (null for anything else). */
+export function youtubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1) || null;
+    if (/(^|\.)youtube(-nocookie)?\.com$/.test(u.hostname)) return u.searchParams.get('v') ?? (/^\/(embed|shorts|live)\/([\w-]+)/.exec(u.pathname)?.[2] ?? null);
+    return null;
+  } catch {
+    return null;
+  }
+}

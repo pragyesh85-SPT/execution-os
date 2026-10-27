@@ -78,3 +78,21 @@ and every heavy job runnable by Task Scheduler (registered by the owner, not by 
    week-end (model sonnet) and study-now (interactive); `.claude/settings.json` permissions.
 5. `study run-job <job>`: gate (only when there is work), `claude -p` per command, log file, job row,
    `STATE.md`, vault commit. `npm run study:schedule` registers the Windows tasks (`--dry-run` prints them).
+
+---
+
+## P3 — Surfaces
+
+Goal: "open it, see the next video" on PC, phone and browser; Claude mobile through MCP; the portfolio.
+
+1. Study proposals (`server/study/proposals.ts`): graph or path changes from MCP arrive as proposals;
+   applying writes the vault file with an audit row holding the previous content → one-tap undo.
+2. Capture to `inbox/` (phone and MCP), offline pack (next 3 items, their packs, due reviews).
+3. `server/study/portfolio.ts`: weekly portfolio (Markdown, JSON, HTML) from evidence — world-university
+   sources only, never IITJ material. `server/study/graph.ts`: duplicate / broken-link / cycle report.
+4. MCP (added to the existing connector, flag `study`): `study_overview`, `study_next`, `study_progress`,
+   `study_test_report`, `study_capture`, `study_log_attempt`, `study_propose`. Audited like every tool.
+5. Study tab (`src/screens/Study.tsx`): header (exam / ready date / overall % / pace), Next up with the
+   embedded segment player (start–end, completion reported), explain + quick check + lab, due today,
+   subject bars, IITJ track, test taking and the last report, proposals; offline cache and answer queue.
+6. Today: a Study card from the synced `studySummary` (works offline). Nav item only when the flag is on.

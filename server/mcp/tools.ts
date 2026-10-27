@@ -17,6 +17,8 @@ import { writeAudit } from './audit';
 import { githubForBlock } from './github';
 import { blockView, CARD_MIME, CARD_URI, cardFor, checkDate, dayView, hhmm, InputError, overview, proposalView, taskView, timeZone, today, toOffset, weekView } from './format';
 import { PRINCIPLES, PROMPTS } from './texts';
+import { registerStudyTools } from '../study/mcp';
+import type { StudyService } from '../study/service';
 
 // The connector's tools, resources and prompts. Every call is audited; every write goes through
 // HubDb.mutate with the device label "mcp:<client>", so it has history and can be undone.
@@ -31,6 +33,7 @@ export interface ToolCtx {
   extraResources?: (server: McpServer, ctx: ToolCtx) => void;
   githubFor?: (doc: Doc, startMs: number, endMs: number, cacheKey: string) => Promise<unknown>;
   analyticsFor?: (doc: Doc, from: string, to: string, now: number) => Out;
+  study?: () => StudyService | null; // Study OS (flag "study"): adds the study_* tools
 }
 
 export interface CallTx {
@@ -486,6 +489,7 @@ export function buildServer(ctx: ToolCtx): McpServer {
   });
 
   ctx.extraTools?.(reg, ctx);
+  if (ctx.study && isOn(ctx.db.doc.settings, 'study')) registerStudyTools(reg, ctx.study);
 
   // ---------------- resources ----------------
 

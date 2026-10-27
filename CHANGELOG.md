@@ -4,6 +4,10 @@ All notable changes to Execution OS are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre-phase-N` and `phase-N-done` tags as rollback points.
 
+## Unreleased — Study OS (behind the `study` flag)
+
+- Study OS module: Study Vault and `study` CLI, ingestion, learning engine (ladder, mastery, FSRS reviews, repairs, pace), Quick Tutor, Python labs, the 3-day test, headless Claude jobs and Task Scheduler script, Study tab, Today Study card, MCP study tools, portfolio. Off by default; nothing changes while it is off.
+
 ## [Unreleased]
 
 ## [2.0.0] - 2026-10-25

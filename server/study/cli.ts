@@ -450,6 +450,61 @@ export const COMMANDS: Record<string, Cmd> = {
       print(out, json, r, () => r.jobs.map((j) => `${j.job.padEnd(11)} ${j.ok ? 'ok    ' : 'FAILED'} ${new Date(j.ended).toLocaleString()}  ${j.log ?? ''}`).join('\n') || 'No job has run yet.');
     },
   },
+  proposals: {
+    usage: 'study proposals [apply|reject <id>]',
+    help: 'Graph / path changes proposed through MCP; apply (undoable) or reject them.',
+    async run(args, { client, out, json }) {
+      const c = await client();
+      if ((args[0] === 'apply' || args[0] === 'reject') && args[1]) {
+        const r = await c.call(args[0] === 'apply' ? 'proposalApply' : 'proposalReject', { id: args[1] });
+        return print(out, json, r, () => `${args[0] === 'apply' ? 'Applied' : 'Rejected'} ${args[1]}.${(r as { audit?: number }).audit ? ` Undo: study undo ${(r as { audit: number }).audit}` : ''}`);
+      }
+      const r = (await c.call('proposals', { status: 'pending' })) as { proposals: { id: string; title: string; client: string | null; payload: { rationale?: string } }[] };
+      print(out, json, r, () => r.proposals.map((p) => `${p.id}  ${p.title}${p.client ? ` (from ${p.client})` : ''}${p.payload.rationale ? ` — ${p.payload.rationale}` : ''}`).join('\n') || 'No pending proposals.');
+    },
+  },
+  undo: {
+    usage: 'study undo [<change-number>]',
+    help: 'List recent AI changes to the vault, or put one back.',
+    async run(args, { client, out, json }) {
+      const c = await client();
+      if (args[0]) return print(out, json, await c.call('undo', { seq: Number(args[0]) }), () => `Undone #${args[0]}.`);
+      const r = (await c.call('changes')) as { changes: { seq: number; at: number; actor: string; action: string; undone: boolean }[] };
+      print(out, json, r, () => r.changes.map((x) => `#${x.seq}  ${new Date(x.at).toLocaleString()}  ${x.actor}: ${x.action}${x.undone ? ' (undone)' : ''}`).join('\n') || 'No changes yet.');
+    },
+  },
+  capture: {
+    usage: 'study capture "<text>" [--url u] [--subject s]',
+    help: 'Drop a note, question or link into inbox/ for the next ingest.',
+    async run(args, { client, out }) {
+      const { pos, flags } = parseFlags(args);
+      const r = (await (await client()).call('capture', { text: pos.join(' '), url: flags.url, subject: flags.subject })) as { file: string };
+      out(`Captured: ${r.file}`);
+    },
+  },
+  portfolio: {
+    usage: 'study portfolio',
+    help: 'Regenerate portfolio/ (world-university sources only; private until you publish it).',
+    async run(_a, { client, out, json }) {
+      const r = (await (await client()).call('portfolio')) as { totals: { concepts: number; hours: number; labs: number; universities: number }; files: string[] };
+      print(out, json, r, () => `Portfolio: ${r.totals.concepts} concepts, ${r.totals.hours} h, ${r.totals.labs} labs, ${r.totals.universities} sources → ${r.files.join(', ')}`);
+    },
+  },
+  dedupe: {
+    usage: 'study dedupe',
+    help: 'Likely duplicate concepts, broken links and prerequisite cycles (for /week-end).',
+    async run(_a, { client, out, json }) {
+      const r = (await (await client()).call('dedupe')) as { duplicates: { a: string; b: string; similarity: number }[]; broken: { concept: string; field: string; target: string; problem: string }[]; cycles: string[][] };
+      print(out, json, r, () =>
+        [
+          `${r.duplicates.length} likely duplicate(s), ${r.broken.length} broken link(s), ${r.cycles.length} cycle(s).`,
+          ...r.duplicates.map((d) => `  dup   ${d.a} ~ ${d.b} (${d.similarity})`),
+          ...r.broken.map((b) => `  link  ${b.concept}.${b.field} → ${b.target}: ${b.problem}`),
+          ...r.cycles.map((c) => `  cycle ${c.join(' → ')}`),
+        ].join('\n'),
+      );
+    },
+  },
   commit: {
     usage: 'study commit "<message>"',
     help: 'Commit the vault (local git only). Every headless job ends with this.',

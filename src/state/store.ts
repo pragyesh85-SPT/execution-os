@@ -5,7 +5,7 @@ import type { AiConfig } from '../lib/ai';
 import type { Conflict } from '../core/sync';
 import type { PairPayload } from '../lib/pairing';
 
-export type Tab = 'now' | 'plan' | 'calendar' | 'clock' | 'review' | 'rules' | 'settings' | 'more';
+export type Tab = 'now' | 'plan' | 'calendar' | 'clock' | 'review' | 'rules' | 'settings' | 'more' | 'study';
 
 /** Preferences that stay on this device only (never synced). */
 export interface LocalPrefs {

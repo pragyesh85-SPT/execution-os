@@ -1,11 +1,15 @@
-import { ChevronRight, Clock3, Settings2, Split } from 'lucide-react';
+import { CalendarDays, ChevronRight, Clock3, Settings2, Split } from 'lucide-react';
+import { useFlag } from '../state/hooks';
 import { useStore } from '../state/store';
 
 // Phones show five tabs; the rest live here.
 
 export function More() {
   const setTab = useStore((s) => s.setTab);
+  // With Study OS on, the phone bar shows Study instead of Calendar, so Calendar lives here.
+  const studyOn = useFlag('study');
   const items = [
+    ...(studyOn ? [{ id: 'calendar' as const, label: 'Calendar', desc: 'Day, week and month views with your targets', icon: CalendarDays }] : []),
     { id: 'clock' as const, label: 'Clock', desc: 'The master clock: your default 24 hours', icon: Clock3 },
     { id: 'rules' as const, label: 'Rules', desc: 'IF → THEN rules decided in advance', icon: Split },
     { id: 'settings' as const, label: 'Settings', desc: 'Devices, AI connector, health, Labs', icon: Settings2 },

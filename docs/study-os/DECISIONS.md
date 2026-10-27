@@ -124,3 +124,25 @@ named file; none of them changes the concept.
   originals and `git push` denied). Chains: ingest → curate → packs → labs; day-end → curate. A failure
   stops the chain. Grade runs every 30 minutes but only when a test is submitted (instead of the hub
   spawning Claude). Tasks run while you are signed in to Windows.
+
+## Surfaces (P3)
+
+- **D-34 Study proposals live in `study.db`**, not in the Execution OS proposals (those describe day
+  plans). Applying one writes the vault file and keeps the old content in the Study audit table; Undo
+  restores it only if the file was not changed since (otherwise it points to the vault's git history).
+  Every MCP call is still logged in the Execution OS AI activity list.
+- **D-35 MCP study tools** appear only while both the connector and the `study` flag are on. Logging an
+  attempt needs `userConfirmed: true` (same rule as `log_session`); changes to the graph or a path are
+  always proposals. Tools return summaries, never raw course files.
+- **D-36 Navigation.** With Study OS on, Study sits right after Now (key 8). On phones it takes
+  Calendar's place in the bottom bar and Calendar moves to More. Flag off → exactly the old navigation.
+- **D-37 Offline.** The phone keeps the last overview and an "offline pack" (next 3 items with their
+  questions — never answers — and due reviews) in local storage; watched segments, answers, explanations
+  and reviews made offline are queued and sent in order when the PC is reachable. The Today Study card
+  reads only the synced summary, so it works offline too.
+- **D-38 Player.** YouTube segments play embedded (youtube-nocookie) with start / end; the player's
+  "ended" event marks the segment watched and "playing" counts as activity. Other resources open in a
+  new tab with an "I watched it" button.
+- **D-39 Portfolio** is generated from watched segments of world-university / open sources (IITJ names
+  and iitj.ac.in links are filtered out), with your passed explanation, quick-check score and lab link,
+  as `portfolio/index.md`, `index.html` and `portfolio.json`. Nothing is published automatically.

@@ -15,6 +15,9 @@ import { StudyDb } from './store';
 import { StudyError } from './errors';
 import { noTutor, Tutor, type TutorSetup } from './tutor';
 import { Exams } from './exam';
+import { graphReport } from './graph';
+import { writePortfolio } from './portfolio';
+import { capture, Proposals } from './proposals';
 import { runHidden } from './labs';
 import { isVault, layout, readVaultConfig, SUBJECT_DIRS } from './vault';
 
@@ -60,6 +63,7 @@ export class StudyService {
   driftMinutes: number;
   readonly tutor: Tutor;
   readonly exams: Exams;
+  readonly proposals: Proposals;
   private cache: { model: Model; events?: StudyEvent[]; states?: Map<string, State> } | null = null;
 
   constructor(opts: StudyServiceOptions) {
@@ -72,6 +76,7 @@ export class StudyService {
     this.db = new StudyDb(layout(this.root).db);
     this.tutor = new Tutor(this, opts.tutor ?? noTutor);
     this.exams = new Exams(this);
+    this.proposals = new Proposals(this);
     this.reindex();
   }
 
@@ -551,6 +556,33 @@ export class StudyService {
     const text = renderState(this);
     writeFileSync(this.L.state, text);
     return { file: this.L.state, text };
+  }
+
+  // ---------- phone, portfolio, graph ----------
+
+  capture(p: { text: string; url?: string; subject?: string; from?: string }) {
+    if (!p.text?.trim() && !p.url) throw new StudyError('Write something (or share a link) to capture.');
+    return capture(this, { ...p, text: p.text ?? '' });
+  }
+
+  /** What the phone keeps for offline use: the next 3 items with their packs, and the due reviews. */
+  offlinePack() {
+    const q = this.queue(40);
+    const next = q.filter((i): i is Extract<QueueItem, { concept: string }> => (i.kind === 'learn' || i.kind === 'repair') && 'concept' in i).slice(0, 3);
+    return {
+      at: this.clock(),
+      overview: this.overview(),
+      items: next.map((i) => ({ item: i, view: this.conceptView({ id: i.concept }) })),
+      reviews: q.filter((i) => i.kind === 'review').map((i) => ({ item: i, view: 'concept' in i ? { concept: { id: i.concept, title: i.title } } : null })),
+    };
+  }
+
+  portfolio() {
+    return writePortfolio(this);
+  }
+
+  dedupe() {
+    return graphReport([...this.model().concepts.values()]);
   }
 
   readyBy(): string {

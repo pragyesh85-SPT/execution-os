@@ -289,3 +289,17 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. It explains the setup and the
 ## License
 
 [MIT](LICENSE) © 2026 Pragyesh Jain
+
+---
+
+## Study OS (Labs)
+
+An optional study module, switched off by default (Settings → Labs → **Study OS**). It turns a course's
+material into a queue of short lessons from world-class open resources, instant checks graded against
+packs written in advance by Claude, Python labs with hidden tests, a cumulative test every 3 days and an
+honest pace meter — and pushes every study session into Execution OS. All study data lives in a private
+**Study Vault** folder on your PC; only a small daily summary syncs to your phone.
+
+- Start here: [docs/study-os/BUILD_REPORT.md](docs/study-os/BUILD_REPORT.md) (setup, step by step)
+- Design: [docs/study-os/ARCHITECTURE.md](docs/study-os/ARCHITECTURE.md) · decisions: [docs/study-os/DECISIONS.md](docs/study-os/DECISIONS.md)
+- Command line: `npm run build:node`, then `npm run study -- help`

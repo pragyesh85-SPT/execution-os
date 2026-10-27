@@ -406,7 +406,7 @@ export function startHub(opts: HubOptions): Promise<Hub> {
     }
   });
 
-  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: opts.gateway, oauthAccessTtlMs: opts.oauthAccessTtlMs });
+  const connector = createConnector({ db, port: opts.mcpPort ?? 4748, tunnel: opts.tunnel, log, gateway: { ...(opts.gateway ?? {}), ctx: { ...(opts.gateway?.ctx ?? {}), study: () => study.service() } }, oauthAccessTtlMs: opts.oauthAccessTtlMs });
 
   return new Promise((resolveHub, reject) => {
     server.once('error', (e) => {
