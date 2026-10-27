@@ -6,6 +6,9 @@
   "author": "Pragyesh Jain",
   "type": "module",
   "main": "build/electron-main.cjs",
+  "bin": {
+    "study": "build/study.cjs"
+  },
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc -b",
@@ -22,7 +25,9 @@
     "dist:apk": "npm run android:sync && node scripts/build-apk.mjs",
     "version:bump": "node scripts/bump-version.mjs",
     "setup": "node scripts/setup.mjs",
-    "doctor": "node build/server.cjs doctor"
+    "doctor": "node build/server.cjs doctor",
+    "study": "node build/study.cjs",
+    "study:schedule": "node scripts/study-schedule.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
@@ -38,6 +43,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@resvg/resvg-js": "^2.6.2",
     "@types/express": "^5.0.6",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.4",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
@@ -47,6 +53,7 @@
     "electron-builder": "^26.15.3",
     "electron-updater": "^6.8.11",
     "esbuild": "^0.28.2",
+    "js-yaml": "^4.3.2",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.52.0",
     "motion": "^14.0.0",

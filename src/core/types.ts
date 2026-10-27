@@ -129,6 +129,9 @@ export interface Session extends Synced {
   category: Category;
   start: number; // ms
   end?: number; // ms, undefined while running
+  source?: 'study'; // v2: started from Study OS (undefined = started in Execution OS)
+  studySessionId?: string; // v2: the Study OS session behind it
+  label?: string; // v2: what is being done, e.g. "Studying: Eigenvalues (Study OS)"
 }
 
 export type ProofStatus = 'done' | 'partial' | 'none';
@@ -146,7 +149,7 @@ export interface Proof extends Synced {
   percent?: number; // v2: 0..100 for partial
   remaining?: string; // v2: what is left (becomes a task)
   blockers?: string; // v2
-  loggedVia?: 'app' | 'mcp'; // v2
+  loggedVia?: 'app' | 'mcp' | 'study'; // v2
   confirmed?: boolean; // v2: the user explicitly confirmed this log (required for MCP)
   goalId?: string; // v2 (targets)
   countDelta?: number; // v2: units a session completed toward a count target
@@ -350,6 +353,28 @@ export interface Settings extends Synced {
   joinDomains?: string[]; // v2: extra meeting domains allowed for one-tap Join (on top of the built-in list)
 }
 
+// ---------- v2: Study OS ----------
+
+/** The only Study OS record that syncs (id "summary"). Everything else stays in the Study Vault on the PC. */
+export interface StudySummary extends Synced {
+  date: string; // logical date the numbers are for
+  minutesToday: number;
+  pace: 'ahead' | 'on_pace' | 'behind' | 'no_data';
+  behindBy: number; // concepts
+  next?: { concept: string; subject: string; minutes: number; why: string };
+  testsDue: number;
+  reviewsDue: number;
+  repairs: number;
+  coverage: number; // 0..1, syllabus coverage
+  readiness: number; // 0..1
+  readyBy: string; // YYYY-MM-DD target
+  projectedReady: string | null;
+  examStart: string;
+  live?: { concept: string; since: number }; // a study session is running
+  lastJobFailed?: string; // e.g. "ingest"
+  at: number;
+}
+
 export interface Doc {
   settings: Settings;
   template: TemplateDoc;
@@ -365,6 +390,7 @@ export interface Doc {
   proposals: Record<string, Proposal>; // v2
   goals: Record<string, Goal>; // v2
   coaching: Record<string, CoachingNote>; // v2
+  study: Record<string, StudySummary>; // v2: only "summary"
 }
 
 export type CollectionKey =
@@ -379,7 +405,8 @@ export type CollectionKey =
   | 'reviews'
   | 'proposals'
   | 'goals'
-  | 'coaching';
+  | 'coaching'
+  | 'study';
 
 export const COLLECTIONS: CollectionKey[] = [
   'days',
@@ -394,6 +421,7 @@ export const COLLECTIONS: CollectionKey[] = [
   'proposals',
   'goals',
   'coaching',
+  'study',
 ];
 
 export type DayState = 'on_track' | 'drifting' | 'rescue';

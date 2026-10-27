@@ -116,7 +116,7 @@ export interface SessionLog {
   blockers?: string;
   goalId?: string;
   countDelta?: number;
-  via: 'app' | 'mcp';
+  via: 'app' | 'mcp' | 'study';
   confirmed?: boolean;
   replace?: boolean; // in-app edit: the note and links replace the old ones instead of being appended
   auto?: string[]; // automatically detected proof (GitHub)

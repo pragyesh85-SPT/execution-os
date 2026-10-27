@@ -15,3 +15,26 @@ android/build/
 android/local.properties
 .env
 .env.*
+
+# ---- Study OS safety: the repo holds only the engine and the vault TEMPLATE ----
+# A real vault (IITJ material, personal study data, keys) must never be committed.
+StudyOS/
+study-vault/
+!templates/study-vault/
+study.db
+study.db-*
+*.study.db
+study.json
+.backups/
+/vault/
+/assets/
+**/subjects/*/assets/*
+!tests/fixtures/**/subjects/*/assets/*
+*.pdf
+*.pptx
+*.ppt
+*.docx
+!tests/fixtures/**/*.pptx
+!tests/fixtures/**/*.docx
+# The template's Claude commands are part of the engine (the line above ignores other .claude/ folders).
+!templates/study-vault/.claude/

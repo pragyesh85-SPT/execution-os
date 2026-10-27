@@ -16,7 +16,8 @@ export type FeatureKey =
   | 'coaching'
   | 'imports'
   | 'mcpApps'
-  | 'quickOverride';
+  | 'quickOverride'
+  | 'study';
 
 /** Default for settings records that never set the flag. A feature defaults on once its release has shipped. */
 export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
@@ -32,6 +33,7 @@ export const FEATURE_DEFAULTS: Record<FeatureKey, boolean> = {
   imports: true, // shipped in v1.5.0
   mcpApps: true, // shipped in v2.0.0
   quickOverride: true, // shipped in v2.0.0
+  study: false, // Study OS: off until the owner switches it on (nothing changes while off)
 };
 
 export const FEATURE_INFO: Record<FeatureKey, { label: string; desc: string }> = {
@@ -47,6 +49,7 @@ export const FEATURE_INFO: Record<FeatureKey, { label: string; desc: string }> =
   imports: { label: 'Imports & Join links', desc: 'Import classes as pinned blocks with a Join button and a reminder before they start.' },
   mcpApps: { label: 'Cards in chat', desc: 'Interactive proposal cards inside Claude (MCP Apps). Text replies stay as a fallback.' },
   quickOverride: { label: 'Quick override', desc: '“I’m doing something else” inside a block: swap, borrow 15/30 minutes, or mark drift honestly.' },
+  study: { label: 'Study OS', desc: 'The Study tab: next video, quick checks, labs and the 3-day test, run from your Study Vault on this PC. Only a small daily summary syncs to other devices.' },
 };
 
 export const FEATURE_KEYS = Object.keys(FEATURE_DEFAULTS) as FeatureKey[];

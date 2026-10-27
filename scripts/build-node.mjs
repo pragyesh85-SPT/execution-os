@@ -39,5 +39,6 @@ const common = {
 };
 
 await build({ ...common, entryPoints: ['server/cli.ts'], outfile: 'build/server.cjs' });
+await build({ ...common, entryPoints: ['server/study/main.ts'], outfile: 'build/study.cjs', banner: { js: '#!/usr/bin/env node' } });
 await build({ ...common, entryPoints: ['electron/main.ts'], outfile: 'build/electron-main.cjs', external: ['electron', 'node:sqlite'] });
 await build({ ...common, entryPoints: ['electron/preload.ts'], outfile: 'build/electron-preload.cjs', external: ['electron', 'node:sqlite'] });

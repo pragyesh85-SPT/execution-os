@@ -19,6 +19,10 @@ module.exports = {
     {
       "from": "extension",
       "to": "extension"
+    },
+    {
+      "from": "templates/study-vault",
+      "to": "templates/study-vault"
     }
   ],
   "win": {

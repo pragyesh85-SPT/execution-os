@@ -1,0 +1,35 @@
+# Semester 1 — dates, subjects, weights and deadlines. The engine reads this file; edit it by hand or
+# let Claude fill it from the official course pages. Dates are YYYY-MM-DD (quote them).
+semester: s1
+studyStart: "2026-10-28"   # day 1 for the pace meter
+examStart: "2026-11-30"    # first end-term paper
+# readyBy: "2026-11-15"    # default: examStart minus 15 days
+testEveryDays: 3           # the cumulative 3-day test
+testMinutes: 75            # default test length (60–90)
+
+# examWeight: relative weight of each subject in the end-term (any scale). Equal until the real weights arrive.
+subjects:
+  - id: lana
+    title: Linear Algebra and Numerical Analysis
+    examWeight: 1
+  - id: fsp
+    title: Foundations of Statistics and Probability
+    examWeight: 1
+  - id: ata
+    title: Algorithmic Thinking and its Applications
+    examWeight: 1
+  - id: bda
+    title: Basics of Data Analytics
+    examWeight: 1
+
+# Graded components per subject, e.g. { subject: lana, name: Quiz 1, weight: 10, kind: quiz, date: "2026-11-08" }
+components: []
+
+# IITJ assignment and quiz deadlines. Each becomes an Execution OS task (area "iit") with its due date.
+# graded: true means a live graded item: Study OS gives hints only, never solutions, until submitted: true.
+# e.g. { id: lana-a1, subject: lana, title: Assignment 1, kind: assignment, due: "2026-11-02", graded: true }
+deadlines: []
+
+endTerm:
+  format: []   # e.g. [written, mcq, programming]
+  notes: ''
