@@ -7,6 +7,7 @@ import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCa
 import { useStore } from '../state/store';
 import { isCapacitor } from '../lib/platform';
 import { CreateVault, StudySetup } from './StudySetup';
+import { StudyGraph } from './StudyGraph';
 import { appendSpoken, listen, speechMode, type Listening, type SpeechMode } from '../lib/speech';
 
 // The Study tab: open it, see the next video. Everything here comes from the hub on the PC; offline it
@@ -218,7 +219,7 @@ export function Study() {
           </section>
 
           {ov.iitj && <IitjTrack iitj={ov.iitj} onDone={() => void load()} />}
-          <Extras lastTest={ov.lastTest} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} />
+          <Extras lastTest={ov.lastTest} subjects={ov.subjects} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} onOpen={(c) => setOpen({ concept: c })} />
           <StudySetup subjects={ov.subjects} onChanged={() => void load()} />
         </div>
       )}
@@ -836,12 +837,12 @@ function SessionReport({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
-function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest']; onReport: (id: string) => void; onReload: () => void }) {
+function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: Overview['lastTest']; subjects: SubjectProgress[]; onReport: (id: string) => void; onReload: () => void; onOpen: (concept: string) => void }) {
   const toast = useStore((s) => s.toast);
   const [props, setProps] = useState<{ id: string; title: string; client: string | null; payload: { rationale?: string } }[]>([]);
   const [changes, setChanges] = useState<{ seq: number; at: number; actor: string; action: string; undone: boolean }[]>([]);
   const [note, setNote] = useState('');
-  const [graph, setGraph] = useState<{ id: string; title: string; subject: string; rung: Rung }[] | null>(null);
+  const [graph, setGraph] = useState(false);
   const refresh = useCallback(() => {
     void studyCall<{ proposals: typeof props }>('proposals', { status: 'pending' }).then((r) => setProps(r.proposals), () => {});
     void studyCall<{ changes: typeof changes }>('changes').then((r) => setChanges(r.changes.slice(0, 5)), () => {});
@@ -852,11 +853,6 @@ function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest
       () => (toast(ok, 'success'), refresh(), onReload()),
       (e: Error) => toast(e.message, 'warn'),
     );
-  const bySubject = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof graph>>();
-    for (const c of graph ?? []) (m.get(c.subject) ?? m.set(c.subject, []).get(c.subject)!).push(c);
-    return [...m];
-  }, [graph]);
   return (
     <>
       {props.length > 0 && (
@@ -906,23 +902,11 @@ function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest
           </Field>
           <div className="row between">
             <span>Concept graph</span>
-            <button className="btn ghost sm" onClick={() => (graph ? setGraph(null) : void studyCall<{ concepts: NonNullable<typeof graph> }>('concepts').then((r) => setGraph(r.concepts)))}>
+            <button className="btn ghost sm" onClick={() => setGraph(!graph)}>
               <GraduationCap size={14} /> {graph ? 'Hide' : 'Show'}
             </button>
           </div>
-          {graph &&
-            bySubject.map(([s, cs]) => (
-              <div key={s}>
-                <strong style={{ fontSize: 13 }}>{s}</strong>
-                <div className="row wrap" style={{ marginTop: 4 }}>
-                  {cs.map((c) => (
-                    <span key={c.id} className="chip" title={RUNG_LABEL[c.rung]} style={{ opacity: c.rung === 'none' ? 0.55 : 1 }}>
-                      {c.title} · {RUNG_LABEL[c.rung]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+          {graph && <StudyGraph subjects={subjects} onOpen={onOpen} />}
           {changes.length > 0 && (
             <div>
               <strong style={{ fontSize: 13 }}>Recent AI changes to the vault</strong>

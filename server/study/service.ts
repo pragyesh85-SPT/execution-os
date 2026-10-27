@@ -20,6 +20,7 @@ import { writePortfolio } from './portfolio';
 import { capture, Proposals } from './proposals';
 import { runHidden } from './labs';
 import { checkFrame, type HeadFetcher } from './frames';
+import { layoutGraph } from '../../src/core/study/graph';
 import { fetchTranscript, readCache, transcriptText, verifySegment, videoIdOf, writeCache, type Fetcher } from './transcript';
 import { isVault, layout, readVaultConfig, refreshManaged, SUBJECT_DIRS } from './vault';
 
@@ -118,6 +119,14 @@ export class StudyService {
       this.cache = { model: m };
     }
     return this.cache.model;
+  }
+
+  /** The drawn concept graph of one subject (layout computed here, drawn by the Study tab). */
+  graph(p: { subject: string }) {
+    const m = this.model();
+    if (!m.subjects.some((s) => s.id === p.subject) && !this.concepts().some((c) => c.subject === p.subject)) throw new StudyError(`Unknown subject "${p.subject}"`, 404);
+    const st = this.states();
+    return layoutGraph(p.subject, [...m.concepts.values()], (id) => st.get(id)?.rung ?? 'none', [...m.questions.values()]);
   }
 
   /** Can this resource be shown inside the Study tab? Only for links that are in the vault's paths. */
