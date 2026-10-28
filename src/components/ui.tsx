@@ -249,3 +249,61 @@ export const itemRise = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE } },
 };
+
+// ---------- guided flows ----------
+
+/** A step bar for a guided flow: every step stays clickable (guidance, not a cage). */
+export function Steps({ steps, current, done, onPick }: { steps: string[]; current: number; done: (i: number) => boolean; onPick: (i: number) => void }) {
+  return (
+    <ol className="steps" aria-label="Steps">
+      {steps.map((s, i) => (
+        <li key={s} data-state={i === current ? 'current' : done(i) ? 'done' : 'todo'}>
+          <button type="button" aria-current={i === current ? 'step' : undefined} onClick={() => onPick(i)}>
+            <span className="steps-n" aria-hidden="true">
+              {done(i) && i !== current ? '✓' : i + 1}
+            </span>
+            <span className="steps-label">{s}</span>
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A card that keeps its body folded until asked: secondary tools stay one tap away without crowding the page. */
+export function Disclosure({ title, summary, children, defaultOpen = false }: { title: ReactNode; summary?: ReactNode; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = useId();
+  return (
+    <section className="card disclosure" data-open={open}>
+      <button type="button" className="disclosure-head" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+        <span className="grow">
+          <span className="disclosure-title">{title}</span>
+          {summary && !open && <span className="disclosure-sum">{summary}</span>}
+        </span>
+        <span className="disclosure-caret" aria-hidden="true">
+          ›
+        </span>
+      </button>
+      {open && (
+        <div id={id} className="disclosure-body">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Visible single-choice options (radio buttons) — faster and clearer than a drop-down for a few options. */
+export function Choice({ name, value, options, onChange, disabled }: { name: string; value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean }) {
+  return (
+    <div className="choice" role="radiogroup">
+      {options.map((o) => (
+        <label key={o} className="choice-opt" data-on={value === o}>
+          <input type="radio" name={name} value={o} checked={value === o} disabled={disabled} onChange={() => onChange(o)} />
+          <span>{o}</span>
+        </label>
+      ))}
+    </div>
+  );
+}

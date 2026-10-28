@@ -215,6 +215,18 @@ textarea {
   color: var(--ink-3);
 }
 
+.nav-group {
+  padding: var(--s4) var(--s3) var(--s1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.nav-group:first-of-type {
+  padding-top: 0;
+}
+
 .rail-foot {
   margin-top: auto;
   padding: var(--s3) var(--s2) 0;
@@ -399,6 +411,19 @@ textarea {
 }
 .btn.icon.sm {
   width: 30px;
+}
+
+/* Touch screens: no target under 40px (Fitts' law; Supple, Gajos et al.) */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+  }
+  .btn.sm {
+    min-height: 40px;
+  }
+  .btn.icon.sm {
+    width: 40px;
+  }
 }
 
 .btn-row {
@@ -2305,4 +2330,216 @@ html[data-motion='reduced'] {
   inset: 0;
   transform-origin: left center;
   border-radius: 3px;
+}
+
+/* ---------- UX v3: guided flows ---------- */
+
+.steps {
+  display: flex;
+  gap: var(--s1);
+  margin: 0 0 var(--s4);
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.steps li {
+  flex: 1 1 0;
+  min-width: max-content;
+}
+.steps button {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: 40px;
+  padding: 6px var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.steps-n {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.steps li[data-state='current'] button {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.steps li[data-state='current'] .steps-n {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.steps li[data-state='done'] .steps-n {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+@media (max-width: 640px) {
+  .steps li:not([data-state='current']) .steps-label {
+    display: none;
+  }
+}
+
+.disclosure {
+  padding: 0;
+}
+.disclosure-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s4) var(--s5);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.disclosure-title {
+  display: block;
+  font-weight: 600;
+}
+.disclosure-sum {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.disclosure-caret {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-3);
+  transition: transform var(--dur) var(--ease);
+}
+.disclosure[data-open='true'] .disclosure-caret {
+  transform: rotate(90deg);
+}
+.disclosure-body {
+  padding: 0 var(--s5) var(--s5);
+}
+
+.choice {
+  display: grid;
+  gap: var(--s2);
+}
+.choice-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 44px;
+  padding: 8px var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.choice-opt[data-on='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.choice-opt input {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+/* Inline answer feedback: beside the answer on wide screens, under it on phones (Seckler; Inal). */
+.feedback {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 14px;
+}
+.feedback[data-ok='true'] {
+  color: var(--ok);
+}
+.feedback[data-ok='false'] {
+  color: var(--warn);
+}
+
+.study-hero h3 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.live-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0 0 var(--s4);
+  padding: var(--s2) var(--s4);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 14px;
+}
+.live-bar .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.pill[data-tone='ok'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.pill[data-tone='warn'] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.pill[data-tone='bad'] {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+.list-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+@media (max-width: 640px) {
+  .list-row {
+    flex-wrap: wrap;
+  }
 }

@@ -29,33 +29,36 @@ import { useStore, type Tab } from './state/store';
 import { useMediaQuery } from './components/ui';
 import { platformLabel } from './lib/platform';
 
-type NavItem = { id: Tab; label: string; icon: typeof Gauge; key: string };
+type NavItem = { id: Tab; label: string; icon: typeof Gauge; key: string; group?: string };
 
+// The desktop rail is grouped by task (do today · look back · set up) and the number keys follow the visual order.
 const V1_NAV: NavItem[] = [
-  { id: 'now', label: 'Now', icon: Gauge, key: '1' },
-  { id: 'plan', label: 'Plan', icon: ListTodo, key: '2' },
-  { id: 'clock', label: 'Clock', icon: Clock3, key: '3' },
-  { id: 'review', label: 'Review', icon: ChartColumn, key: '4' },
-  { id: 'rules', label: 'Rules', icon: Split, key: '5' },
-  { id: 'settings', label: 'Settings', icon: Settings2, key: '6' },
+  { id: 'now', label: 'Now', icon: Gauge, key: '', group: 'Daily' },
+  { id: 'plan', label: 'Plan', icon: ListTodo, key: '' },
+  { id: 'review', label: 'Review', icon: ChartColumn, key: '', group: 'Look back' },
+  { id: 'clock', label: 'Clock', icon: Clock3, key: '', group: 'System' },
+  { id: 'rules', label: 'Rules', icon: Split, key: '' },
+  { id: 'settings', label: 'Settings', icon: Settings2, key: '' },
 ];
 
 // v2 (flag "calendar"): the Calendar tab, Review renamed Insights, and a five-item bar on phones.
 const V2_NAV: NavItem[] = [
-  { id: 'now', label: 'Now', icon: Gauge, key: '1' },
-  { id: 'plan', label: 'Plan', icon: ListTodo, key: '2' },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays, key: '3' },
-  { id: 'review', label: 'Insights', icon: ChartColumn, key: '4' },
-  { id: 'clock', label: 'Clock', icon: Clock3, key: '5' },
-  { id: 'rules', label: 'Rules', icon: Split, key: '6' },
-  { id: 'settings', label: 'Settings', icon: Settings2, key: '7' },
+  { id: 'now', label: 'Now', icon: Gauge, key: '', group: 'Daily' },
+  { id: 'plan', label: 'Plan', icon: ListTodo, key: '' },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays, key: '', group: 'Look back' },
+  { id: 'review', label: 'Insights', icon: ChartColumn, key: '' },
+  { id: 'clock', label: 'Clock', icon: Clock3, key: '', group: 'System' },
+  { id: 'rules', label: 'Rules', icon: Split, key: '' },
+  { id: 'settings', label: 'Settings', icon: Settings2, key: '' },
 ];
-const V2_MOBILE: NavItem[] = [...V2_NAV.slice(0, 4), { id: 'more', label: 'More', icon: Ellipsis, key: '' }];
+const MORE_ITEM: NavItem = { id: 'more', label: 'More', icon: Ellipsis, key: '' };
+const V2_MOBILE: NavItem[] = [V2_NAV[0], V2_NAV[1], V2_NAV[2], V2_NAV[3], MORE_ITEM];
 
 // Study OS (flag "study"): a Study tab right after Now. On phones it takes Calendar's place (Calendar moves to More).
-const STUDY_ITEM: NavItem = { id: 'study', label: 'Study', icon: GraduationCap, key: '8' };
+const STUDY_ITEM: NavItem = { id: 'study', label: 'Study', icon: GraduationCap, key: '' };
 const withStudy = (nav: NavItem[]) => [nav[0], STUDY_ITEM, ...nav.slice(1)];
-const STUDY_MOBILE: NavItem[] = [V2_NAV[0], STUDY_ITEM, V2_NAV[1], V2_NAV[3], { id: 'more', label: 'More', icon: Ellipsis, key: '' }];
+const STUDY_MOBILE: NavItem[] = [V2_NAV[0], STUDY_ITEM, V2_NAV[1], V2_NAV[3], MORE_ITEM];
+const numbered = (nav: NavItem[]) => nav.map((n, i) => ({ ...n, key: String(i + 1) }));
 
 export function BrandMark() {
   return (
@@ -118,7 +121,7 @@ export default function App() {
   const calendarOn = useFlag('calendar');
   const studyOn = useFlag('study');
   const baseNav = calendarOn ? V2_NAV : V1_NAV;
-  const NAV = studyOn ? withStudy(baseNav) : baseNav;
+  const NAV = numbered(studyOn ? withStudy(baseNav) : baseNav);
   const baseMobile = calendarOn ? V2_MOBILE : V1_NAV.filter((n) => n.id !== 'rules');
   const MOBILE_NAV = studyOn ? (calendarOn ? STUDY_MOBILE : withStudy(baseMobile).slice(0, 6)) : baseMobile;
   useEffect(() => {
@@ -169,14 +172,19 @@ export default function App() {
           {NAV.map((n) => {
             const Icon = n.icon;
             const active = tab === n.id;
-            return (
+            return [
+              n.group && (
+                <span key={`g-${n.group}`} className="nav-group">
+                  {n.group}
+                </span>
+              ),
               <button key={n.id} className="nav-item" aria-current={active ? 'page' : undefined} onClick={() => setTab(n.id)}>
                 {active && <motion.span layoutId="nav-bg" className="nav-bg" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
                 <Icon size={18} />
                 <span>{n.label}</span>
                 <kbd>{n.key}</kbd>
-              </button>
-            );
+              </button>,
+            ];
           })}
           <div className="rail-foot">
             <span>

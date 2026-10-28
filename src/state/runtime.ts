@@ -40,6 +40,22 @@ function fireOnce(key: string, date: string): boolean {
   return true;
 }
 
+/**
+ * Rescue Mode is a full dialog. While the owner is in the middle of a lesson, a test or typing, it would break
+ * the task they are doing, so it waits behind a toast instead (interruptions matched to task criticality).
+ */
+function openRescue(reason: string) {
+  const st = useStore.getState();
+  const el = document.activeElement;
+  const busy = st.tab === 'study' || (el instanceof HTMLElement && !!el.closest('input, textarea, select, [contenteditable]'));
+  if (!busy) {
+    st.open({ rescue: true });
+    if (reason) st.toast(reason, 'warn');
+    return;
+  }
+  st.toast(reason || 'The day has slipped — rebuild it when you are ready.', 'warn', { label: 'Rebuild', run: () => useStore.getState().open({ rescue: true }) });
+}
+
 function runAction(rule: Rule, block: PlanBlock | undefined, date: string) {
   const st = useStore.getState();
   switch (rule.action.type) {
@@ -47,8 +63,7 @@ function runAction(rule: Rule, block: PlanBlock | undefined, date: string) {
       if (block?.focus) st.open({ focus: true });
       break;
     case 'rescue':
-      st.open({ rescue: true });
-      st.toast('Rescue Mode: your rule asked to rebuild the day.', 'warn');
+      openRescue('Rescue Mode: your rule asked to rebuild the day.');
       break;
     case 'notify':
       st.toast(rule.action.message);
@@ -171,7 +186,7 @@ export function useRuntime() {
       if (doc.settings.autoRescue && doc.settings.onboarded) {
         const s = dayStatus(doc, now);
         if (s.state === 'rescue' && !st.overlay.rescue && !st.overlay.wake && fireOnce(`auto-rescue:${date}:${s.reason}:${s.block?.id ?? ''}`, date)) {
-          st.open({ rescue: true });
+          openRescue('');
         }
       }
     };
