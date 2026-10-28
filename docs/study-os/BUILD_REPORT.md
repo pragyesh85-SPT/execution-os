@@ -27,6 +27,13 @@ rendered). Known limits of v2.2:
   "no captions" and segments fall back to the whole video — never to invented times.
 - Sites that forbid framing (common for big course sites) open in the browser, not inside the tab.
 
+**Released (Oct 28):** merged into `main` (`99a9183`, CI green), tag `v2.2.0`, GitHub Release
+[v2.2.0](https://github.com/pragyesh85-SPT/execution-os/releases/tag/v2.2.0) with the setup and portable EXE,
+the APK (versionCode 20200, same signing certificate as 2.0.0/2.1.0), `latest.yml`, `install.ps1`,
+`SHA256SUMS.txt` and a Hindi demo video recorded on the real app. The packaged EXE passed the isolated
+end-to-end check (18/18, temp database and vault, port 47902). The tag-triggered release workflow was
+cancelled; the release was published by hand from the locally signed builds.
+
 ## What was built, per phase
 
 | Phase | Commit | Tag | What it added |
