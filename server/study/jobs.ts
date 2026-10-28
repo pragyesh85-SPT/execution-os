@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileStamp } from '../db';
-import { commitVault } from './vault';
+import { commitVault, MANAGED } from './vault';
 import { frontMatter } from './yaml';
 
 // Headless Claude jobs. Windows Task Scheduler runs `study run-job <job>` in the vault; this file:
@@ -57,7 +57,12 @@ export function readCommand(vault: string, name: string, args = ''): { model: st
   const file = join(vault, '.claude', 'commands', `${name}.md`);
   if (!existsSync(file)) throw new Error(`Missing job file .claude/commands/${name}.md — run: study init "${vault}" (it adds missing files)`);
   const { meta, body } = frontMatter(readFileSync(file, 'utf8'), file);
-  return { model: typeof meta.model === 'string' ? meta.model : 'sonnet', prompt: body.replace(/\$ARGUMENTS/g, args).trim() };
+  // the managed-file marker is bookkeeping for the app, not an instruction for Claude
+  const prompt = body
+    .split('\n')
+    .filter((l) => !l.includes(MANAGED))
+    .join('\n');
+  return { model: typeof meta.model === 'string' ? meta.model : 'sonnet', prompt: prompt.replace(/\$ARGUMENTS/g, args).trim() };
 }
 
 function claudeCmd(opt?: string[]): string[] {

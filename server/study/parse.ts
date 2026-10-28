@@ -97,6 +97,7 @@ const segment = z.object({
   why: opt(text(500)),
   checkedAt: opt(date()),
   dead: opt(z.boolean()),
+  timestampVerified: opt(z.boolean()),
 });
 
 const toSegment = (s: z.infer<typeof segment>): Segment => ({
@@ -112,6 +113,7 @@ const toSegment = (s: z.infer<typeof segment>): Segment => ({
   why: s.why ?? '',
   ...(s.checkedAt ? { checkedAt: s.checkedAt } : {}),
   ...(s.dead ? { dead: true } : {}),
+  ...(s.timestampVerified === false ? { timestampVerified: false } : {}),
 });
 
 export function parsePath(raw: string, file: string, fallbackConcept: string): ResourcePath {

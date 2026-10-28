@@ -9,6 +9,24 @@ Built overnight, Oct 27–28 2026, on branch `feature/study-os` (from `main` at 
 Nothing was merged into `main` and no release was created. The concept in `ARCHITECTURE.md` was followed
 as written; every gap the document left open is listed in `DECISIONS.md` (D-01 … D-39).
 
+## v2.2.0 (Oct 28) — on `feature/study-os-v2.2`, rollback tag `pre-study-v2.2`
+
+| Phase | Commit | Tag | What it added |
+| --- | --- | --- | --- |
+| 1 Transcript-only times | `ca4327c` | `study-v2.2-p1-done` | `study transcript <url>` caches a YouTube video's captions + chapters; the hub verifies every segment's start/end against them (±2 s); unverified → whole video + "times not verified"; `/curate` may take times only from that text; engine-owned vault files refresh on update |
+| 2 Android speech | `c65121f` | `study-v2.2-p2-done` | native `StudySpeech` Capacitor plugin (Android SpeechRecognizer), browser engine on the PC, live words, typing always possible |
+| 3 In-app resources | `8d9c005` | `study-v2.2-p3-done` | hub checks X-Frame-Options / CSP frame-ancestors (only for vault links); allowed pages and PDFs open inside the Study tab, others in the browser; "Done — I studied it" records evidence |
+| 4 Concept graph | `304888f` | `study-v2.2-p4-done` | drawn per subject: prerequisite arrows, tested-by, confused-with, rung colours; zoom (wheel, pinch, buttons), pan, tap to open |
+| 5 Test timer | `8e8b877` | `study-v2.2-p5-done` | server deadline per part (never reset), 20 s autosave, 1-minute warning, auto-submit at zero, the hub submits saved answers after a 2-minute grace |
+
+Tests after phase 5: 27 files, 255 tests, typecheck clean (run single-worker while the explainer video
+rendered). Known limits of v2.2:
+- **Android speech was not tested on a physical phone** — no device was connected over USB. The plugin
+  compiles into the APK; to test: install the APK, open a concept, press Speak, allow the microphone.
+- The transcript fetch uses YouTube's public pages (no API key); if YouTube changes them, the fetch reports
+  "no captions" and segments fall back to the whole video — never to invented times.
+- Sites that forbid framing (common for big course sites) open in the browser, not inside the tab.
+
 ## What was built, per phase
 
 | Phase | Commit | Tag | What it added |

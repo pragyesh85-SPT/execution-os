@@ -1,3 +1,4 @@
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 # Vault file formats
 
 The hub indexes these files into `study.db` whenever they change. A file that does not parse is
@@ -64,6 +65,12 @@ segments:                       # 1–3: intuition → formal → worked example
     checkedAt: "2026-10-28"     # the link was fetched and verified that day
 alternates: []                  # shown after a missed check (same fields)
 ```
+
+**Times must come from the video's own text.** Claude cannot watch a video. Before giving a YouTube segment
+`start` / `end`, run `study transcript <url> --text` and take both times from a transcript line or a chapter
+it prints. If the video has neither, leave `start` / `end` out (the whole video plays) and write
+`timestampVerified: false`. The hub re-checks every time against `cache/transcripts/<id>.json` (±2 s); a time
+that matches no transcript line or chapter is shown as *times not verified* and the whole video plays.
 
 ## `packs/<concept-id>.yaml` — the check pack (what "correct" looks like)
 

@@ -109,8 +109,13 @@ export interface InitResult {
   root: string;
   created: string[];
   kept: string[];
+  updated: string[]; // managed files refreshed to the engine's version
   git: 'initialised' | 'exists' | 'unavailable' | 'skipped';
 }
+
+/** Engine-owned template files (job commands, file formats) carry this marker. While a vault's copy still
+ * has it, a newer engine refreshes the file; remove the marker to keep your own edits. */
+export const MANAGED = 'study-os:managed';
 
 function copyTree(from: string, to: string, base: string, out: InitResult) {
   for (const name of readdirSync(from)) {
@@ -120,6 +125,15 @@ function copyTree(from: string, to: string, base: string, out: InitResult) {
       mkdirSync(dst, { recursive: true });
       copyTree(src, dst, base, out);
     } else if (existsSync(dst)) {
+      const want = readFileSync(src, 'utf8');
+      if (want.includes(MANAGED)) {
+        const have = readFileSync(dst, 'utf8');
+        if (have !== want && have.includes(MANAGED)) {
+          writeFileSync(dst, want);
+          out.updated.push(relative(base, dst));
+          continue;
+        }
+      }
       out.kept.push(relative(base, dst));
     } else {
       copyFileSync(src, dst);
@@ -147,7 +161,7 @@ export function initVault(target: string, opts: InitOptions = {}): InitResult {
   const repo = insideEngineRepo(root);
   if (repo) throw new Error(`Refusing to create the Study Vault inside the Execution OS repo (${repo}). Pick a folder outside it, e.g. ${defaultVaultPath()}.`);
   mkdirSync(root, { recursive: true });
-  const out: InitResult = { root, created: [], kept: [], git: 'skipped' };
+  const out: InitResult = { root, created: [], kept: [], updated: [], git: 'skipped' };
   const tpl = templateDir();
   copyTree(tpl, root, root, out);
 
@@ -197,6 +211,18 @@ export function initVault(target: string, opts: InitOptions = {}): InitResult {
     }
   }
   return out;
+}
+
+/** Refresh the engine-owned files of an existing vault (new job rules after an app update). Quiet on failure. */
+export function refreshManaged(root: string): string[] {
+  try {
+    const out: InitResult = { root, created: [], kept: [], updated: [], git: 'skipped' };
+    const tpl = templateDir();
+    for (const sub of ['.claude', 'docs']) if (existsSync(join(tpl, sub))) copyTree(join(tpl, sub), join(root, sub), root, out);
+    return [...out.updated, ...out.created];
+  } catch {
+    return [];
+  }
 }
 
 /** Commit everything Claude (or ingestion) changed. Used after every headless run. */

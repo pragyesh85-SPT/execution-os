@@ -102,6 +102,7 @@ export const METHODS: Record<string, Method> = {
   testCheck: { run: (svc, p) => svc.exams.check({ id: str(p.id, 'id', 10) }) },
   testStart: { write: true, run: (svc, p) => svc.exams.start({ id: str(p.id, 'id', 10), subject: optStr(p.subject, 80) }) },
   testSubmit: { write: true, run: (svc, p) => svc.exams.submit({ id: str(p.id, 'id', 10), subject: optStr(p.subject, 80), answers: obj(p.answers) as Record<string, { text?: string; image?: string; code?: string }> }) },
+  testSave: { write: true, run: (svc, p) => svc.exams.saveDraft({ id: str(p.id, 'id', 10), subject: optStr(p.subject, 80), answers: obj(p.answers) as Record<string, { text?: string; image?: string; code?: string }> }) },
   testFinalize: { write: true, local: true, run: (svc, p) => svc.exams.finalize({ id: str(p.id, 'id', 10) }) },
   testReport: { run: (svc, p) => svc.exams.report({ id: str(p.id, 'id', 10) }) },
 
@@ -117,6 +118,12 @@ export const METHODS: Record<string, Method> = {
   offlinePack: { run: (svc) => svc.offlinePack() },
   portfolio: { write: true, local: true, run: (svc) => svc.portfolio() },
   dedupe: { run: (svc) => svc.dedupe() },
+
+  graph: { run: (svc, p) => svc.graph({ subject: str(p.subject, 'subject', 80) }) },
+  frameCheck: { run: (svc, p) => svc.frameCheck({ url: str(p.url, 'url', 2000) }) },
+
+  // ---------- transcripts (curation evidence) ----------
+  transcript: { write: true, local: true, run: (svc, p) => svc.transcript({ url: str(p.url, 'url', 2000), text: p.text === true }) },
 
   // ---------- headless jobs ----------
   jobs: { run: (svc) => ({ jobs: svc.jobs() }) },

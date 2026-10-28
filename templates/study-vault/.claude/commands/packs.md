@@ -2,6 +2,7 @@
 description: Write check packs (what "correct" looks like) before the owner reaches each concept
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **packs** job in the Study Vault. Read `STATE.md` and `CLAUDE.md` first;
 format in `docs/FORMATS.md` (`packs/<concept-id>.yaml`).
 

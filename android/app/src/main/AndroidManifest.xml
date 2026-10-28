@@ -49,6 +49,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Wake Gate: scan the QR wake card with the camera -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Study OS: speak your explanation (speech-to-text) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Alarms and block notifications that fire on time, even when the app is closed -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -57,4 +59,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 11+: let the app see the phone's speech recognition service -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>

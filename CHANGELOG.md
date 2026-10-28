@@ -6,6 +6,18 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-28
+
+### Added
+- **Study OS — verified segment times.** `study transcript <url>` reads a YouTube video's transcript and chapters; segment start/end are used only when they match that text (Claude cannot watch videos), otherwise the whole video plays and the Study tab says "times not verified".
+- **Speak your explanation in the Android app** (native speech-to-text), and in Chrome / Edge on the PC; typing always works.
+- **Course pages, interactive sites and PDFs inside the Study tab** where the site allows it, with "Done — I studied it".
+- **A drawn, zoomable concept graph** per subject (prerequisites, tested-by, often-confused; coloured by level).
+- **The 3-day test timer is enforced:** live countdown, 1-minute warning, auto-submit at zero, autosave every 20 s, and the PC submits saved answers if the app is closed.
+
+### Changed
+- The vault's job files and file-format guide update themselves with the app (remove their marker line to keep your own edits).
+
 ## [2.1.0] - 2026-10-28
 
 ### Added

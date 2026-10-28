@@ -2,6 +2,7 @@
 description: Map concepts to the best open resource segments, 3 days ahead of the queue
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **curate** job in the Study Vault. Read `STATE.md` and `CLAUDE.md` first;
 formats in `docs/FORMATS.md`. You may use web search and fetch.
 
@@ -20,9 +21,14 @@ scope; learning happens from world-class open resources.
    Starting candidates (verify each): 3Blue1Brown Essence of Linear Algebra, MIT 18.06 (Strang), MIT OCW
    numerical methods · Harvard Stat 110, Stanford CS109, Seeing Theory (Brown), MIT 18.05, StatQuest ·
    MIT 6.006, Harvard CS50, VisuAlgo · Python Data Science Handbook, Kaggle Learn, StatQuest.
-4. **Fetch every URL before saving it.** For videos record exact `start` / `end` (m:ss) of the segment
-   that teaches the concept, not the whole lecture; for text record `pages` or the section.
-   Fill `source`, `university` (for the portfolio), `course`, `lecture`, one line `why`, `checkedAt` today.
+4. **Fetch every URL before saving it.** Videos: **you cannot watch them — never estimate or invent a time.**
+   For every YouTube candidate run `study transcript <url> --text`. Choose `start` and `end` ONLY from a
+   `[m:ss]` transcript line or a chapter in that output: start = the line where the explanation of this
+   concept begins, end = the line where it is finished. If the video has no transcript and no chapters,
+   leave `start` / `end` out (the whole video) and add `timestampVerified: false`. Prefer a video whose
+   transcript lets you cut the exact part. Other videos (no transcript tool): whole video + `timestampVerified: false`.
+   Text resources: `pages` or the section. Fill `source`, `university` (for the portfolio), `course`,
+   `lecture`, one line `why` (quote the transcript line you started on), `checkedAt` today.
 5. Put the notation map on the concept card (`notation`: IITJ symbol beside the resource's symbol).
 6. Dead links: mark `dead: true` and replace the segment the same night.
 7. `study reindex`, fix parse errors, print what was curated.

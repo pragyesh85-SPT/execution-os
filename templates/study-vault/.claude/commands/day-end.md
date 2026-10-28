@@ -2,6 +2,7 @@
 description: Nightly synthesis — audit the Quick Tutor, refresh the queue context, keep resources ahead
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **day-end** job (nightly, 1:00) in the Study Vault. Read `STATE.md` and
 `CLAUDE.md` first. Never touch `study.db`; every correction goes through `study`.
 

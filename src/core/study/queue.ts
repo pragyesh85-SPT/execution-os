@@ -37,7 +37,7 @@ export function nextSegment(path: ResourcePath | undefined, state: ConceptState 
 /** The most visual explanation available (a repair starts with it). */
 export const visualSegment = (path: ResourcePath | undefined) => path && ([...path.segments, ...path.alternates].find((s) => !s.dead && s.kind === 'intuition') ?? [...path.segments, ...path.alternates].find((s) => !s.dead));
 
-const segMinutes = (s: Segment | undefined, fallback: number) => (s?.start !== undefined && s?.end !== undefined && s.end > s.start ? Math.max(1, Math.round((s.end - s.start) / 60)) : fallback);
+const segMinutes = (s: Segment | undefined, fallback: number) => (s?.start !== undefined && s?.end !== undefined && s.end > s.start && s.timestampVerified !== false ? Math.max(1, Math.round((s.end - s.start) / 60)) : fallback);
 
 export function buildQueue(inp: QueueInput): QueueItem[] {
   const out: QueueItem[] = [];

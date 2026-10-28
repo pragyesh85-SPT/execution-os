@@ -2,6 +2,7 @@
 description: Ingest new IITJ assets and phone captures, decompose them into concept cards
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **ingest** job in the Study Vault (current folder). Read `STATE.md` and
 `CLAUDE.md` first. File formats: `docs/FORMATS.md`. Use `study` (`study.cmd` on Windows) for every
 engine call. Never touch `study.db`. Safe to re-run: change only what is missing or wrong.

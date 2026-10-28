@@ -2,6 +2,7 @@
 description: Grade the written part of a submitted 3-day test against its rubric and write the report
 model: sonnet
 ---
+<!-- study-os:managed — the app refreshes this file on update; delete this line to keep your own edits -->
 You are running the Study OS **grade** job in the Study Vault. Read `STATE.md` and `CLAUDE.md` first;
 format in `docs/FORMATS.md` (`tests/<date>/grading.yaml`).
 

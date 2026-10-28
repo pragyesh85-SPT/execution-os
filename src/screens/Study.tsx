@@ -5,7 +5,10 @@ import { fmtTime } from '../core/study/ids';
 import { RUNG_LABEL, type QueueItem, type Rung, type Segment, type SubjectProgress } from '../core/study/types';
 import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCall, youtubeId } from '../lib/studyApi';
 import { useStore } from '../state/store';
+import { isCapacitor } from '../lib/platform';
 import { CreateVault, StudySetup } from './StudySetup';
+import { StudyGraph } from './StudyGraph';
+import { appendSpoken, listen, speechMode, type Listening, type SpeechMode } from '../lib/speech';
 
 // The Study tab: open it, see the next video. Everything here comes from the hub on the PC; offline it
 // shows the last pack it saved (next 3 items, their checks, due reviews) and queues answers.
@@ -216,7 +219,7 @@ export function Study() {
           </section>
 
           {ov.iitj && <IitjTrack iitj={ov.iitj} onDone={() => void load()} />}
-          <Extras lastTest={ov.lastTest} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} />
+          <Extras lastTest={ov.lastTest} subjects={ov.subjects} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} onOpen={(c) => setOpen({ concept: c })} />
           <StudySetup subjects={ov.subjects} onChanged={() => void load()} />
         </div>
       )}
@@ -289,7 +292,12 @@ function SegmentLine({ seg }: { seg: Segment }) {
       <strong>{seg.source}</strong>
       {seg.course ? ` · ${seg.course}` : ''}
       {seg.lecture ? ` · ${seg.lecture}` : ''}
-      {seg.start !== undefined && seg.end !== undefined ? ` · ${fmtTime(seg.start)}–${fmtTime(seg.end)}` : seg.pages ? ` · pages ${seg.pages}` : ''}
+      {seg.start !== undefined && seg.end !== undefined && seg.timestampVerified !== false ? ` · ${fmtTime(seg.start)}–${fmtTime(seg.end)}` : seg.pages ? ` · pages ${seg.pages}` : ''}
+      {seg.timestampVerified === false && (
+        <span className="chip" title={seg.verifyNote} style={{ marginLeft: 6, color: 'var(--warn)' }}>
+          times not verified · whole video
+        </span>
+      )}
       <br />
       <span className="faint">{seg.why}</span>
     </p>
@@ -320,14 +328,10 @@ function Player({ seg, onEnded }: { seg: Segment; onEnded: () => void }) {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [id, onEnded]);
-  if (!id)
-    return (
-      <a className="btn" href={seg.url} target="_blank" rel="noreferrer">
-        <ExternalLink size={14} /> Open {seg.source}
-        {seg.pages ? ` (pages ${seg.pages})` : ''}
-      </a>
-    );
-  const q = new URLSearchParams({ enablejsapi: '1', rel: '0', modestbranding: '1', origin: location.origin.startsWith('http') ? location.origin : 'https://localhost', ...(seg.start !== undefined ? { start: String(seg.start) } : {}), ...(seg.end !== undefined ? { end: String(seg.end) } : {}) });
+  if (!id) return <Reader seg={seg} />;
+  // times are used only when the video's own transcript / chapters back them; otherwise the whole video plays
+  const timed = seg.timestampVerified !== false;
+  const q = new URLSearchParams({ enablejsapi: '1', rel: '0', modestbranding: '1', origin: location.origin.startsWith('http') ? location.origin : 'https://localhost', ...(timed && seg.start !== undefined ? { start: String(seg.start) } : {}), ...(timed && seg.end !== undefined ? { end: String(seg.end) } : {}) });
   return (
     <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
       <iframe
@@ -338,6 +342,41 @@ function Player({ seg, onEnded }: { seg: Segment; onEnded: () => void }) {
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
         onLoad={() => ref.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'study', channel: 'widget' }), '*')}
       />
+    </div>
+  );
+}
+
+/**
+ * A non-YouTube resource (course page, interactive site, PDF) inside the Study tab when the site allows it
+ * (the hub checks its headers); otherwise it opens in the browser. Either way "Done" below records it.
+ */
+function Reader({ seg }: { seg: Segment }) {
+  const [v, setV] = useState<{ embeddable: boolean; pdf: boolean; reason: string } | null>(null);
+  useEffect(() => {
+    setV(null);
+    studyCall<{ embeddable: boolean; pdf: boolean; reason: string }>('frameCheck', { url: seg.url }).then(setV, () => setV({ embeddable: false, pdf: false, reason: 'the PC could not check this link' }));
+  }, [seg.url]);
+  // Android's WebView cannot draw PDFs inside a page: those open in the phone's viewer
+  const inApp = !!v?.embeddable && !(v.pdf && isCapacitor);
+  const open = () => window.open(seg.url, '_blank', 'noopener');
+  return (
+    <div>
+      {inApp ? (
+        <div style={{ position: 'relative', height: '70vh', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)', background: '#fff' }}>
+          <iframe title={seg.source} src={seg.url} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', border: 0 }} />
+        </div>
+      ) : (
+        <div className="empty">
+          <strong>{v ? `${seg.source} opens in your browser` : 'Checking the link…'}</strong>
+          {v && <span className="faint">{v.reason}. Study it there, then come back and press Done.</span>}
+        </div>
+      )}
+      <div className="btn-row" style={{ marginTop: 8 }}>
+        <button className="btn sm" onClick={open}>
+          <ExternalLink size={14} /> {inApp ? 'Open in browser instead' : `Open ${seg.source}`}
+          {seg.pages ? ` (pages ${seg.pages})` : ''}
+        </button>
+      </div>
     </div>
   );
 }
@@ -400,7 +439,7 @@ function ConceptWork({ concept, repair, live, onStart, onClose }: { concept: str
             </div>
             <div className="btn-row" style={{ marginTop: 10 }}>
               <button className="btn sm" onClick={() => void done(seg)}>
-                <CheckIcon size={14} /> I watched it
+                <CheckIcon size={14} /> {youtubeId(seg.url) ? 'I watched it' : 'Done — I studied it'}
               </button>
             </div>
           </section>
@@ -443,19 +482,24 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
   const toast = useStore((s) => s.toast);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
   const [res, setRes] = useState<{ pass: boolean; coverage: number; feedback: string; covered: { text: string }[]; missed: { text: string }[]; hint?: string | null; confidence: string } | null>(null);
-  const Rec = (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; continuous: boolean; interimResults: boolean; start: () => void; stop: () => void; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void } }).webkitSpeechRecognition;
+  // speech-to-text: native on the Android app, the browser's engine on the PC, otherwise typing only
+  const [mode, setMode] = useState<SpeechMode>('none');
+  const [session, setSession] = useState<Listening | null>(null);
+  const [heard, setHeard] = useState('');
+  useEffect(() => void speechMode().then(setMode), []);
   const speak = () => {
-    if (!Rec) return;
-    const r = new Rec();
-    r.lang = 'en-IN';
-    r.continuous = true;
-    r.interimResults = false;
-    r.onresult = (e) => setText((t) => `${t} ${Array.from(e.results).map((x) => x[0].transcript).join(' ')}`.trim());
-    r.onend = () => setListening(false);
-    setListening(true);
-    r.start();
+    const typedBefore = text;
+    const l = listen(mode, setHeard);
+    setSession(l);
+    setHeard('');
+    l.done
+      .then((spoken) => setText(appendSpoken(typedBefore, spoken)))
+      .catch((e: Error) => toast(e.message, 'warn'))
+      .finally(() => {
+        setSession(null);
+        setHeard('');
+      });
   };
   const check = async () => {
     setBusy(true);
@@ -477,16 +521,21 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
       <p className="muted" style={{ marginTop: 0 }}>
         The Quick Tutor checks your explanation against {keyPoints} key points Claude wrote in advance.
       </p>
-      <textarea className="textarea" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type or speak your explanation…" />
+      <textarea className="textarea" rows={5} value={session ? appendSpoken(text, heard) : text} readOnly={!!session} onChange={(e) => setText(e.target.value)} placeholder={mode === 'none' ? 'Type your explanation…' : 'Type or speak your explanation…'} />
       <div className="btn-row" style={{ marginTop: 8 }}>
-        <button className="btn primary sm" disabled={busy || text.trim().length < 20} onClick={() => void check()}>
+        <button className="btn primary sm" disabled={busy || !!session || text.trim().length < 20} onClick={() => void check()}>
           Check my explanation
         </button>
-        {Rec && (
-          <button className="btn sm" onClick={speak} disabled={listening}>
-            <Mic size={14} /> {listening ? 'Listening…' : 'Speak'}
-          </button>
-        )}
+        {mode !== 'none' &&
+          (session ? (
+            <button className="btn sm primary" onClick={() => session.stop()}>
+              <Mic size={14} /> Listening… tap to stop
+            </button>
+          ) : (
+            <button className="btn sm" onClick={speak}>
+              <Mic size={14} /> Speak
+            </button>
+          ))}
       </div>
       {res && (
         <div className="banner" data-tone={res.pass ? 'info' : 'drifting'} style={{ marginTop: 12 }}>
@@ -671,32 +720,75 @@ function TestTaking({ id, onClose }: { id: string; onClose: () => void }) {
   const toast = useStore((s) => s.toast);
   const [paper, setPaper] = useState<{ title: string; durationMin: number; items: { id: string; subject: string; kind: string; q: string; marks: number; style?: string; entry?: string; starter?: string }[] } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { text?: string; code?: string; image?: string }>>({});
-  const [startedAt] = useState(Date.now());
+  const [deadline, setDeadline] = useState(0); // in this device's clock (server deadline, corrected for clock skew)
+  const [now, setNow] = useState(Date.now());
   const [result, setResult] = useState<{ message: string; programming: { id: string; passed: number; total: number; marks: number; of: number }[] } | null>(null);
   const [busy, setBusy] = useState(false);
+  const latest = useRef(answers);
+  latest.current = answers;
+  const submitted = useRef(false);
+  const warned = useRef(false);
+  const dirty = useRef(false);
   useEffect(() => {
-    studyCall<{ paper: NonNullable<typeof paper> }>('testStart', { id })
+    studyCall<{ paper: NonNullable<typeof paper>; deadline: number; now: number; draft: typeof answers }>('testStart', { id })
       .then((r) => {
         setPaper(r.paper);
-        setAnswers(Object.fromEntries(r.paper.items.filter((i) => i.kind === 'programming').map((i) => [i.id, { code: i.starter ?? '' }])));
+        setDeadline(r.deadline + (Date.now() - r.now));
+        const starters = Object.fromEntries(r.paper.items.filter((i) => i.kind === 'programming').map((i) => [i.id, { code: i.starter ?? '' }]));
+        setAnswers({ ...starters, ...(r.draft ?? {}) }); // a reopened test continues where it was
       })
       .catch((e: Error) => toast(e.message, 'warn'));
   }, [id, toast]);
-  const left = paper ? Math.max(0, paper.durationMin * 60_000 - (Date.now() - startedAt)) : 0;
+  const submit = useCallback(
+    async (auto = false) => {
+      if (submitted.current) return;
+      submitted.current = true;
+      setBusy(true);
+      try {
+        setResult(await studyCall('testSubmit', { id, answers: latest.current }));
+        if (auto) toast('Time is up — your answers were submitted.', 'info');
+      } catch (e) {
+        submitted.current = false;
+        toast((e as Error).message, 'warn');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [id, toast],
+  );
+  // the clock: a 1-minute warning, then submit automatically at zero
+  useEffect(() => {
+    if (!deadline || result) return;
+    const t = window.setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (!warned.current && deadline - n <= 60_000) {
+        warned.current = true;
+        toast('1 minute left — your answers will be submitted automatically.', 'warn');
+      }
+      if (n >= deadline) void submit(true);
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [deadline, result, submit, toast]);
+  // autosave every 20 s: if this device dies, the PC submits the last saved answers when the time is up
+  useEffect(() => {
+    if (!deadline || result) return;
+    const t = window.setInterval(() => {
+      if (!dirty.current || submitted.current) return;
+      dirty.current = false;
+      void studyCall('testSave', { id, answers: latest.current }).catch(() => (dirty.current = true));
+    }, 20_000);
+    return () => window.clearInterval(t);
+  }, [deadline, result, id]);
+  useEffect(() => {
+    dirty.current = true;
+  }, [answers]);
+  const left = deadline ? Math.max(0, deadline - now) : 0;
+  const clock = `${Math.floor(left / 60_000)}:${String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')}`;
   const photo = (itemId: string, file: File) => {
     const r = new FileReader();
     r.onload = () => setAnswers((a) => ({ ...a, [itemId]: { ...a[itemId], image: String(r.result) } }));
     r.readAsDataURL(file);
-  };
-  const submit = async () => {
-    setBusy(true);
-    try {
-      setResult(await studyCall('testSubmit', { id, answers }));
-    } catch (e) {
-      toast((e as Error).message, 'warn');
-    } finally {
-      setBusy(false);
-    }
   };
   if (!paper) return <div className="empty">Starting the test…</div>;
   return (
@@ -705,9 +797,14 @@ function TestTaking({ id, onClose }: { id: string; onClose: () => void }) {
         <div>
           <h1>{paper.title}</h1>
           <p>
-            {paper.durationMin} min · Focus Guard is on · about {Math.round(left / 60_000)} min left
+            {paper.durationMin} min · Focus Guard is on · answers save automatically
           </p>
         </div>
+        {!result && (
+          <span className="chip mono" style={{ fontSize: 16, height: 32, color: left <= 60_000 ? 'var(--bad)' : undefined }} aria-live="polite">
+            {clock} left
+          </span>
+        )}
         <button className="btn ghost sm" onClick={onClose}>
           Back
         </button>
@@ -788,12 +885,12 @@ function SessionReport({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
-function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest']; onReport: (id: string) => void; onReload: () => void }) {
+function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: Overview['lastTest']; subjects: SubjectProgress[]; onReport: (id: string) => void; onReload: () => void; onOpen: (concept: string) => void }) {
   const toast = useStore((s) => s.toast);
   const [props, setProps] = useState<{ id: string; title: string; client: string | null; payload: { rationale?: string } }[]>([]);
   const [changes, setChanges] = useState<{ seq: number; at: number; actor: string; action: string; undone: boolean }[]>([]);
   const [note, setNote] = useState('');
-  const [graph, setGraph] = useState<{ id: string; title: string; subject: string; rung: Rung }[] | null>(null);
+  const [graph, setGraph] = useState(false);
   const refresh = useCallback(() => {
     void studyCall<{ proposals: typeof props }>('proposals', { status: 'pending' }).then((r) => setProps(r.proposals), () => {});
     void studyCall<{ changes: typeof changes }>('changes').then((r) => setChanges(r.changes.slice(0, 5)), () => {});
@@ -804,11 +901,6 @@ function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest
       () => (toast(ok, 'success'), refresh(), onReload()),
       (e: Error) => toast(e.message, 'warn'),
     );
-  const bySubject = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof graph>>();
-    for (const c of graph ?? []) (m.get(c.subject) ?? m.set(c.subject, []).get(c.subject)!).push(c);
-    return [...m];
-  }, [graph]);
   return (
     <>
       {props.length > 0 && (
@@ -858,23 +950,11 @@ function Extras({ lastTest, onReport, onReload }: { lastTest: Overview['lastTest
           </Field>
           <div className="row between">
             <span>Concept graph</span>
-            <button className="btn ghost sm" onClick={() => (graph ? setGraph(null) : void studyCall<{ concepts: NonNullable<typeof graph> }>('concepts').then((r) => setGraph(r.concepts)))}>
+            <button className="btn ghost sm" onClick={() => setGraph(!graph)}>
               <GraduationCap size={14} /> {graph ? 'Hide' : 'Show'}
             </button>
           </div>
-          {graph &&
-            bySubject.map(([s, cs]) => (
-              <div key={s}>
-                <strong style={{ fontSize: 13 }}>{s}</strong>
-                <div className="row wrap" style={{ marginTop: 4 }}>
-                  {cs.map((c) => (
-                    <span key={c.id} className="chip" title={RUNG_LABEL[c.rung]} style={{ opacity: c.rung === 'none' ? 0.55 : 1 }}>
-                      {c.title} · {RUNG_LABEL[c.rung]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+          {graph && <StudyGraph subjects={subjects} onOpen={onOpen} />}
           {changes.length > 0 && (
             <div>
               <strong style={{ fontSize: 13 }}>Recent AI changes to the vault</strong>
