@@ -570,6 +570,15 @@ function AddBlockCard({ date }: { date: string }) {
   const [pinned, setPinned] = useState(true);
   const [missionTitle, setMissionTitle] = useState('');
   const [showAll, setShowAll] = useState(false);
+  // the form stays folded until asked for; the day's blocks below are what this card is mostly read for
+  const [adding, setAdding] = useState(false);
+  // resetting wipes the day's edits, so it takes a second tap within a few seconds
+  const [confirmReset, setConfirmReset] = useState(false);
+  useEffect(() => {
+    if (!confirmReset) return;
+    const t = window.setTimeout(() => setConfirmReset(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [confirmReset]);
   const bal = entertainmentBalance(doc, weekKey(date), now);
   const ent = category === 'entertainment';
   const off = offsetOf(now, date, ds);
@@ -603,67 +612,82 @@ function AddBlockCard({ date }: { date: string }) {
   return (
     <section className="card">
       <h2 className="card-title">
-        <span>Add to this day</span>
+        <span>This day</span>
         {ent && (
           <span className="mono" style={{ textTransform: 'none', letterSpacing: 0, color: bal.remaining < 0 ? 'var(--bad)' : undefined }}>
             {fmtDur(Math.max(0, bal.remaining))} of {fmtDur(bal.budget)} fun left this week
           </span>
         )}
       </h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Put a specific thing at a specific time — “4:00–5:00 PM Investor call prep”. Pinned blocks stay put: Rescue rebuilds everything else around them.
-      </p>
-      <div className="form-grid">
-        <Field label="What">
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ent ? 'Movie' : 'Investor call prep'} />
-        </Field>
-        <Field label="Category">
-          <select className="select" value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-            {ADDABLE.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORY_META[c].label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Starts at">
-          <input className="input mono" value={start} onChange={(e) => setStart(e.target.value)} placeholder="16:00" />
-        </Field>
-        <Field label="Duration">
-          <select className="select" value={dur} onChange={(e) => setDur(Number(e.target.value))}>
-            {[15, 30, 45, 60, 90, 120, 150, 180, 240].map((m) => (
-              <option key={m} value={m}>
-                {fmtDur(m)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {!ent && (
-          <Field label="Mission (optional)">
-            <input className="input" value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} placeholder="Deck v3 ready to send" />
+      {!adding ? (
+        <div className="btn-row">
+          <button className="btn" onClick={() => setAdding(true)}>
+            <Plus size={16} /> Add a block at a fixed time
+          </button>
+          <button
+            className={`btn ghost${confirmReset ? ' danger' : ''}`}
+            onClick={() => {
+              if (!confirmReset) return setConfirmReset(true);
+              setConfirmReset(false);
+              resetDayToTemplate(date);
+              toast('Day reset to the master clock. Missions and outcomes kept.', 'success');
+            }}
+          >
+            <RotateCcw size={16} /> {confirmReset ? 'Tap again to reset this day' : 'Reset day to master clock'}
+          </button>
+        </div>
+      ) : (
+        <>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Put a specific thing at a specific time — “4:00–5:00 PM Investor call prep”. Pinned blocks stay put: Rescue rebuilds everything else around them.
+        </p>
+        <div className="form-grid">
+          <Field label="What">
+            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ent ? 'Movie' : 'Investor call prep'} />
           </Field>
+          <Field label="Category">
+            <select className="select" value={category} onChange={(e) => setCategory(e.target.value as Category)}>
+              {ADDABLE.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_META[c].label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Starts at">
+            <input className="input mono" type="time" step={300} value={start} onChange={(e) => setStart(e.target.value)} />
+          </Field>
+          <Field label="Duration">
+            <select className="select" value={dur} onChange={(e) => setDur(Number(e.target.value))}>
+              {[15, 30, 45, 60, 90, 120, 150, 180, 240].map((m) => (
+                <option key={m} value={m}>
+                  {fmtDur(m)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {!ent && (
+            <Field label="Mission (optional)">
+              <input className="input" value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} placeholder="Deck v3 ready to send" />
+            </Field>
+          )}
+        </div>
+        {!ent && (
+          <label className="row" style={{ marginTop: 12, fontSize: 14, gap: 10 }}>
+            <Toggle on={pinned} onChange={setPinned} label="Pin to this time" />
+            Pin to this time
+          </label>
         )}
-      </div>
-      {!ent && (
-        <label className="row" style={{ marginTop: 12, fontSize: 14, gap: 10 }}>
-          <Toggle on={pinned} onChange={setPinned} label="Pin to this time" />
-          Pin to this time
-        </label>
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button className="btn primary" onClick={add}>
+            <Plus size={16} /> Add to {date === today() ? 'today' : 'tomorrow'}
+          </button>
+          <button className="btn ghost" onClick={() => setAdding(false)}>
+            Cancel
+          </button>
+        </div>
+        </>
       )}
-      <div className="btn-row" style={{ marginTop: 12 }}>
-        <button className="btn primary" onClick={add}>
-          <Plus size={16} /> Add to {date === today() ? 'today' : 'tomorrow'}
-        </button>
-        <button
-          className="btn ghost"
-          onClick={() => {
-            resetDayToTemplate(date);
-            toast('Day reset to the master clock. Missions and outcomes kept.', 'success');
-          }}
-        >
-          <RotateCcw size={16} /> Reset day to master clock
-        </button>
-      </div>
 
       {exceptions.length > 0 && (
         <div className="stack" style={{ marginTop: 16 }}>

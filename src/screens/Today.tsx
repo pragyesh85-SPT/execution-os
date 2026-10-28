@@ -46,7 +46,6 @@ export function Today() {
         <div className="today-col">
           <ProposalBanner />
           <WeekTargetsLine />
-          <StudyCard />
           <AnimatePresence initial={false}>
             {status.state !== 'on_track' && (
               <motion.div
@@ -130,6 +129,7 @@ export function Today() {
           )}
 
           <NowCard block={block} />
+          <StudyCard />
 
           <section className="card">
             <h2 className="card-title">Next</h2>
@@ -204,8 +204,8 @@ function StudyCard() {
   const setTab = useStore((st) => st.setTab);
   const session = useStore((st) => Object.values(st.doc.sessions).find((x) => !x.del && x.end === undefined && x.source === 'study'));
   if (!on || !s || s.del) return null;
-  const pace = s.pace === 'behind' ? `behind by ${s.behindBy}` : s.pace === 'ahead' ? 'ahead of pace' : s.pace === 'on_pace' ? 'on pace' : 'pace from day 2';
-  const due = [s.testsDue ? `3-day test due` : '', s.reviewsDue ? `${s.reviewsDue} review${s.reviewsDue > 1 ? 's' : ''}` : '', s.repairs ? `${s.repairs} repair${s.repairs > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+  const pace = s.pace === 'behind' ? `${s.behindBy} topic${s.behindBy === 1 ? '' : 's'} behind` : s.pace === 'ahead' ? 'ahead of pace' : s.pace === 'on_pace' ? 'on pace' : 'pace from day 2';
+  const due = [s.testsDue ? `3-day test due` : '', s.reviewsDue ? `${s.reviewsDue} recall${s.reviewsDue > 1 ? 's' : ''} due` : '', s.repairs ? `${s.repairs} weak spot${s.repairs > 1 ? 's' : ''} to fix` : ''].filter(Boolean).join(' · ');
   return (
     <section className="card">
       <h2 className="card-title">
@@ -222,13 +222,24 @@ function StudyCard() {
         )}
       </p>
       <p className="muted" style={{ margin: '4px 0 0', fontSize: 14 }}>
-        {Math.round(s.coverage * 100)}% covered · {pace} · ready by {s.readyBy}
-        {s.projectedReady ? ` (projected ${s.projectedReady})` : ''}
+        {Math.round(s.coverage * 100)}% covered · {pace}
         {due ? ` · ${due}` : ''}
         {s.lastJobFailed ? ` · last ${s.lastJobFailed} job failed` : ''}
       </p>
       <div className="btn-row" style={{ marginTop: 10 }}>
-        <button className="btn sm" onClick={() => setTab('study')}>
+        {s.next && (
+          <button
+            className="btn primary sm"
+            onClick={() => {
+              // the Study tab opens the running lesson, or starts today's (timer + Focus Guard), on #study/next
+              location.hash = 'study/next';
+              setTab('study');
+            }}
+          >
+            <Play size={14} /> {session ? 'Continue lesson' : 'Start lesson'}
+          </button>
+        )}
+        <button className="btn ghost sm" onClick={() => setTab('study')}>
           Open Study
         </button>
       </div>
