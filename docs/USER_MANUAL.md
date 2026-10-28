@@ -109,9 +109,10 @@ This is home. From top to bottom:
 
 - **Status pill**: **On track** (green), **Drifting** (amber: a focus block has not started on time) or
   **Rescue** (red: a protected block was badly missed).
-- **Study card** (when Study OS is on): minutes studied today, the next concept, coverage, pace, what is due.
 - **Now card**: the current block, its **mission** ("Finish Assignment 3, Q1–Q5", never just "study"),
   its steps, and the time left. **Start** begins a timed session; **F** opens Focus Mode.
+- **Study card** (when Study OS is on): minutes studied today, the next topic, coverage, pace, what is due,
+  and **Start lesson** (or **Continue lesson** while one runs), which opens the lesson directly.
 - **Next**: the next three blocks and their missions.
 - **3 outcomes**: the three results that would make today a success. Tick them as you finish.
 - **Banners** when something needs you: finished blocks without proof, a pending proposal, devices
@@ -319,36 +320,51 @@ which is why the heavy ones run at night. **Remove all** takes them out again.
 
 | Part | Meaning |
 | --- | --- |
-| Header | Exam in N days · ready date in M days · % of the syllabus done · pace |
-| Next up | The concept, the subject, the segment (source, course, start–end), how long, and *why now* |
-| Due today | Review cards, repair items, the 3-day test when due |
-| Subjects | Per subject: coverage bar (orange) and readiness bar (green) |
-| IITJ track | Lectures watched and assignments submitted, open deadlines with a *Submitted* button |
-| More | Last test report, capture box, the **concept graph**, proposals, recent AI changes with Undo |
+| Header | One sentence: days to the exam and whether you are on plan (e.g. *"32 days to the exam · 1 topic behind the plan"*) |
+| Timer bar | While a session runs: what is being timed, the minutes so far, **Open lesson** and **Finish** |
+| Today's lesson | The topic, subject, the video or reading, about how long, *why now*, and one button: **Start lesson** |
+| Do these first | Only when something is due: quick recalls, weak spots to fix, the 3-day test |
+| Progress | Per subject: topics learned, a coverage bar, % exam-ready; the aim date and topics a day needed |
+| IITJ deadlines | Each open deadline with *due in N days* and **Mark as submitted** |
+| Tools (folded) | Save a doubt for later, the **concept graph**, last test report, recent AI changes with Undo |
 | Study setup | (PC only) assets, Quick Tutor, scheduled jobs |
 
-### 6.2 One concept, step by step
+### 6.2 One lesson, step by step
 
-1. **Start studying** (top right). Execution OS records the session, shows *"Studying: … (Study OS)"* on
-   Now and turns Focus Guard on. Inside an IIT block it uses that block; inside another block it swaps
-   that block to study; with no block it adds one. Study whenever you like — the system follows you.
-2. **Open** the Next up item. **Watch** the segment: it plays right there and stops at the chosen time.
-   When it ends it is marked watched (or press *I watched it*). Status: **Seen**.
+Press **Start lesson** (on the Study tab, or on the Study card of the Now screen). In one tap the study
+timer starts, Execution OS shows *"Studying: … (Study OS)"* on Now, Focus Guard turns on, and the lesson
+opens. Inside an IIT block it uses that block; inside another block it swaps that block to study; with no
+block it adds one. **Preview without the timer** opens the same lesson without timing it.
+
+The step bar on top shows where you are: **Watch → Explain → Check → Lab → Done** (Lab only when the topic
+has one). One step is on screen at a time; **Next** goes on, **Skip for now** moves on without it, and any
+step can be tapped in the bar.
+
+1. **Watch** — the segment plays right there and stops at the chosen time. When it ends it is marked
+   watched (or press *I watched it — next*). The **Key idea** box under the video has the definition and
+   formulas. Stage: **Seen**.
    - Start and end times are used only when they match the video's own **transcript or chapters**
      (Claude cannot watch videos, so it may only pick times from that text). Otherwise the segment shows
      **times not verified · whole video** and the whole video plays.
    - Course pages, interactive sites (Seeing Theory, VisuAlgo) and PDFs open **inside the Study tab** when
-     the site allows it; otherwise they open in your browser. Press **Done — I studied it** when finished.
-3. **Explain it in your own words** — type, or press **Speak** and talk (in the Android app it uses the
-   phone's own speech recognition; on the PC, Chrome or Edge). You see the words as you speak; tap again
-   to stop. Typing always works. The tutor marks which key points you covered or missed and gives 2–3
-   lines of feedback. Covering 80 % of the key points = **Understood**.
-   If you miss, the next step offers an **alternate explanation** and a hint.
-4. **Quick check**: 5–10 short questions from the pack. 80 % right (and the lab passed, if the concept
-   has one) = **Applied**.
-5. **Lab**: implement the formula or algorithm in Python; **Run hidden tests** runs them on your PC.
-6. **Stop studying**. The Execution OS proof fills itself, e.g. *"3 concepts, 14 questions 79 %, lab
-   passed"*, with a link to the session report.
+     the site allows it; otherwise they open in your browser. Press **I studied it — next** when finished.
+2. **Explain** — teach it back in your own words: type, or press **Speak** and talk (in the Android app it
+   uses the phone's own speech recognition; on the PC, Chrome or Edge). The hint under the box says how
+   much more to write before it can be checked. The tutor marks which key points you covered or missed.
+   Covering 80 % of the key points = **Understood**. If you miss, the Watch step offers another explanation.
+3. **Check** — 5–10 short questions. Choices are shown as buttons; the answer is checked right next to the
+   question (green tick = correct, orange = not yet, with a hint). 80 % right (and the lab passed, if the
+   topic has one) = **Applied**.
+4. **Lab** — implement the formula or algorithm in Python; **Run hidden tests** runs them on your PC.
+5. **Done** — what you finished, what is left (**Do it now**), and how well you know the topic, from your
+   answers. **Finish the session** stops the timer; the Execution OS proof fills itself, e.g. *"3 concepts,
+   14 questions 79 %, lab passed"*, with a link to the session report.
+
+A weak spot (the same mistake twice) appears under **Do these first → Fix it**: it shows the clearest
+explanation, then a **Retest** that closes it when you get it right.
+
+While you are in the Study tab or typing, Rescue Mode does not jump over your lesson: a notice with
+**Rebuild** appears instead, and the Now screen still shows the Rescue banner.
 
 If nothing happens in Study OS for 10 minutes during a session, Execution OS records drift. A session
 left alone for 90 minutes stops itself.
@@ -368,7 +384,7 @@ retention, transfer, speed), each computed only from evidence, or "no evidence y
 
 ### 6.3a The concept graph
 
-**More → Concept graph → Show** draws one subject at a time: arrows from prerequisites, dashed lines to
+**Tools → Concept graph → Show** draws one subject at a time: arrows from prerequisites, dashed lines to
 the questions that test a concept, dotted red lines between concepts that are often confused. The colour
 is your level (grey not started, blue seen / understood, green applied, teal retained, orange exam-ready).
 Scroll or pinch to zoom, drag to move, use **+ / − / fit**, and tap a concept to open it.

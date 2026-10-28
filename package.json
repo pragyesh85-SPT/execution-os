@@ -1,7 +1,7 @@
 {
   "name": "execution-os",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Execution OS - a personal 24-hour command system",
   "author": "Pragyesh Jain",
   "type": "module",

@@ -60,5 +60,6 @@ separate confirmation, one primary action per card.
   `git checkout pre-ux-v3` (or revert the merge) restores the old UI exactly.
 - Windows: the 2.2.0 installer stays on the GitHub release v2.2.0 and in `E:\ExecutionOS-build\release-2.2.0`.
   Installing it over 2.3.0 brings the old UI back; data is untouched (this release changes no data formats).
-- Android: Android refuses to install an older versionCode over a newer one. To go back, uninstall 2.3.0 and
-  install the 2.2.0 APK, then **Scan PC** again (the phone's data lives on the PC hub).
+- Android: Android refuses to install an older versionCode over a newer one. To go back: let the phone sync
+  with the PC first (its data is copied on the PC hub), uninstall 2.3.0, install the 2.2.0 APK from the
+  v2.2.0 release, then pair again with **Scan PC**.

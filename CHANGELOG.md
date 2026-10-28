@@ -6,6 +6,20 @@ Every release has a git tag (`vX.Y.Z`); every phase of the v2 plan also has `pre
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-29
+
+### Changed
+- **Easier everywhere (UX v3), from 13 UX research papers** — see docs/ux-v3/RESEARCH.md for each finding and change.
+  - **Study: one tap to study.** *Start lesson* starts the timer + Focus Guard and opens the lesson; *Preview without the timer* only opens it. The two competing Start buttons are gone.
+  - **Guided lesson:** Watch → Explain → Check → Lab → Done, one step at a time, with a step bar, Next / Skip for now, a running-timer bar and a lesson summary.
+  - Quick-check choices are buttons (not a drop-down) and each answer is checked right beside the question.
+  - The Study tab speaks plainly ("32 days to the exam · 1 topic behind the plan"), shows *Do these first* only when something is due, IITJ deadlines say *due in N days* with **Mark as submitted**, and the extras sit behind one **Tools** fold.
+  - Now: the current block comes first; the Study card has **Start / Continue lesson**.
+  - Rescue Mode no longer jumps over a lesson, a test or typing — a notice with **Rebuild** appears instead.
+  - Navigation grouped (Daily · Look back · System); number keys follow the order on screen (Study is now 2).
+  - Phones: every button is at least 40 px tall.
+  - Plan: the fixed-time form opens from **Add a block at a fixed time**, the start time uses a time picker, and **Reset day to master clock** asks for a second tap.
+
 ## [2.2.0] - 2026-10-28
 
 ### Added
