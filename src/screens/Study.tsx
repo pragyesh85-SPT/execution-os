@@ -1,10 +1,11 @@
-import { BookOpen, Camera, Check as CheckIcon, CircleAlert, ExternalLink, FlaskConical, GraduationCap, Inbox, Mic, Play, RefreshCw, Square, Undo2, WifiOff } from 'lucide-react';
+import { BookOpen, Camera, Check as CheckIcon, ChevronLeft, ChevronRight, CircleAlert, ExternalLink, FlaskConical, GraduationCap, Inbox, Mic, Play, RefreshCw, Square, Undo2, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bar, Field } from '../components/ui';
+import { Bar, Choice, Disclosure, Field, Steps } from '../components/ui';
 import { fmtTime } from '../core/study/ids';
 import { RUNG_LABEL, type QueueItem, type Rung, type Segment, type SubjectProgress } from '../core/study/types';
 import { cacheGet, cacheSet, enqueue, flushQueue, queued, StudyApiError, studyCall, youtubeId } from '../lib/studyApi';
 import { useStore } from '../state/store';
+import { useNow } from '../state/runtime';
 import { isCapacitor } from '../lib/platform';
 import { CreateVault, StudySetup } from './StudySetup';
 import { StudyGraph } from './StudyGraph';
@@ -40,6 +41,21 @@ interface ConceptView {
 
 const pct = (n: number | null | undefined) => `${Math.round((n ?? 0) * 100)}%`;
 const PACE: Record<string, string> = { ahead: 'ahead of pace', on_pace: 'on pace', behind: 'behind', no_data: 'pace from day 2' };
+const KIND_LABEL: Record<QueueItem['kind'], string> = { learn: 'New lesson', review: 'Quick recall', repair: 'Fix a weak spot', test: '3-day test' };
+
+/** The header in one plain sentence: days left and where the plan stands. */
+function paceLine(h: NonNullable<Overview['header']>) {
+  const p = h.pace;
+  const pace =
+    p.status === 'behind' && p.behindBy > 0
+      ? `${p.behindBy} topic${p.behindBy === 1 ? '' : 's'} behind the plan`
+      : p.status === 'ahead'
+        ? 'ahead of the plan'
+        : p.status === 'no_data'
+          ? 'your pace shows from day 2'
+          : 'on plan';
+  return `${h.daysToExam} days to the exam · ${pace}`;
+}
 
 function useOnline() {
   const [online, set] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -62,9 +78,11 @@ export function Study() {
   const [ov, setOv] = useState<Overview | null>(() => cacheGet<Overview>('overview'));
   const [err, setErr] = useState<{ msg: string; status: number; setup?: boolean } | null>(null);
   const [offline, setOffline] = useState(false);
-  const [open, setOpen] = useState<{ concept: string; repair?: string; review?: boolean } | null>(null);
+  const [open, setOpen] = useState<{ concept: string; repair?: string } | null>(null);
   const [test, setTest] = useState<string | null>(null);
   const [session, setSession] = useState<string | null>(() => (location.hash.startsWith('#study/session/') ? location.hash.slice('#study/session/'.length) : null));
+  // "Start lesson" on the Now tab links here (#study/next): start today's lesson once the overview is in
+  const wantNext = useRef(location.hash === '#study/next');
   const online = useOnline();
 
   const load = useCallback(async () => {
@@ -100,38 +118,63 @@ export function Study() {
     return () => window.clearInterval(t);
   }, [live]);
 
-  const startStop = async (concept?: string) => {
+  const stop = async () => {
     try {
-      if (live) {
-        const r = await studyCall<{ line: string; minutes: number }>('stop');
-        toast(`Stopped after ${r.minutes} min · ${r.line}`, 'success');
-      } else {
-        const r = await studyCall<{ label: string }>('start', { concept });
-        toast(`${r.label} — Focus Guard is on`, 'success');
-      }
-      void load();
+      const r = await studyCall<{ line: string; minutes: number }>('stop');
+      toast(`Session saved · ${r.minutes} min · ${r.line}`, 'success');
     } catch (e) {
       toast((e as Error).message, 'warn');
     }
+    void load();
   };
+  const startTimer = async (concept?: string) => {
+    try {
+      const r = await studyCall<{ label: string; focusGuard?: boolean }>('start', { concept });
+      const what = r.label.replace(/^Studying: /, '').replace(/ \(Study OS\)$/, '');
+      toast(`Timer on — ${what}${r.focusGuard ? ' · Focus Guard is on' : ''}`, 'success');
+    } catch (e) {
+      toast((e as Error).message, 'warn');
+    }
+    void load();
+  };
+  /** One tap: the timer (and Focus Guard) starts and the lesson opens. A lesson already running just reopens. */
+  const startLesson = async (concept: string, repair?: string) => {
+    setOpen({ concept, repair });
+    if (live?.concept !== concept) await startTimer(concept);
+  };
+
+  useEffect(() => {
+    if (!wantNext.current || !ov) return;
+    wantNext.current = false;
+    history.replaceState(null, '', location.pathname);
+    const n = ov.next;
+    if (ov.live?.concept) setOpen({ concept: ov.live.concept });
+    else if (n && 'concept' in n) void startLesson(n.concept, n.kind === 'repair' ? n.repair.key : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ov]);
 
   if (session) return <SessionReport id={session} onClose={() => (setSession(null), history.replaceState(null, '', location.pathname))} />;
   if (test) return <TestTaking id={test} onClose={() => (setTest(null), void load())} />;
-  if (open) return <ConceptWork {...open} live={!!live} onStart={() => startStop(open.concept)} onClose={() => (setOpen(null), void load())} />;
+  if (open)
+    return (
+      <ConceptWork
+        {...open}
+        live={live}
+        onStart={() => void startTimer(open.concept)}
+        onStop={() => void stop()}
+        onClose={() => (setOpen(null), void load())}
+      />
+    );
+
+  const next = ov?.next ?? null;
+  const liveTitle = live && next && 'concept' in next && next.concept === live.concept ? next.title : undefined;
 
   return (
     <div>
       <header className="page-head">
         <div>
           <h1>Study</h1>
-          {ov?.header ? (
-            <p>
-              Exam in {ov.header.daysToExam} days · ready date in {ov.header.daysToReady} days · {pct(ov.header.coverage)} done · {PACE[ov.header.pace.status] ?? ov.header.pace.status}
-              {ov.header.pace.behindBy ? ` by ${ov.header.pace.behindBy}` : ''}
-            </p>
-          ) : (
-            <p>Study OS · your vault on the PC</p>
-          )}
+          <p>{ov?.header ? paceLine(ov.header) : 'Study OS · your vault on the PC'}</p>
         </div>
         <div className="row wrap">
           {(offline || !online) && (
@@ -139,15 +182,13 @@ export function Study() {
               <WifiOff size={13} /> offline — saved pack
             </span>
           )}
-          <button className={`btn sm${live ? ' primary' : ''}`} onClick={() => startStop(ov?.next && 'concept' in ov.next ? ov.next.concept : undefined)} disabled={!ov}>
-            {live ? <Square size={14} /> : <Play size={14} />} {live ? 'Stop studying' : 'Start studying'}
-          </button>
-          <button className="btn ghost sm icon" aria-label="Refresh" onClick={() => void load()}>
+          <button className="btn ghost sm icon" aria-label="Refresh" title="Refresh" onClick={() => void load()}>
             <RefreshCw size={14} />
           </button>
         </div>
       </header>
 
+      {live && <LiveBar live={live} title={liveTitle} onStop={() => void stop()} onOpen={live.concept ? () => setOpen({ concept: live.concept! }) : undefined} />}
       {err && (err.setup ? <CreateVault onDone={() => void load()} /> : <SetupHelp err={err} />)}
       {!ov && !err && summary && <SummaryOnly summary={summary} />}
       {!ov && !err && !summary && <div className="empty">Connecting to your PC…</div>}
@@ -158,71 +199,47 @@ export function Study() {
             <div key={j.job} className="banner" data-tone="drifting">
               <CircleAlert size={18} />
               <div className="grow">
-                <h3>Last {j.job} failed</h3>
+                <h3>The last {j.job} job failed</h3>
                 <p>{j.log ? `Log: ${j.log}` : 'See study jobs on the PC.'} Run it again by hand: study run-job {j.job} --force</p>
               </div>
             </div>
           ))}
-          {!ov.setup.assessment && <div className="empty"><strong>Fill semesters/s1/assessment.yaml in the vault</strong>Exam dates, subjects and weights decide the pace and the ready date.</div>}
-
-          <NextUp item={ov.next} subjects={ov.subjects} live={!!live} onOpen={(c, repair) => setOpen({ concept: c, repair })} onStart={(c) => startStop(c)} />
-
-          <section className="card">
-            <h2 className="card-title">Due today</h2>
-            <div className="stack">
-              {ov.due.test && 'testId' in ov.due.test && (
-                <div className="row between">
-                  <span>
-                    <strong>{ov.due.test.title}</strong> · {ov.due.test.minutes} min, written + programming
-                  </span>
-                  <button className="btn primary sm" onClick={() => setTest((ov.due.test as { testId: string }).testId)}>
-                    Take the test
-                  </button>
-                </div>
-              )}
-              {ov.due.repairs.map((r) => 'concept' in r && (
-                <div key={`r-${r.concept}`} className="row between">
-                  <span>
-                    <strong>Repair · {r.title}</strong> <span className="faint">{r.why}</span>
-                  </span>
-                  <button className="btn sm" onClick={() => setOpen({ concept: r.concept, repair: r.kind === 'repair' ? r.repair.key : undefined })}>
-                    Fix it
-                  </button>
-                </div>
-              ))}
-              {ov.due.reviews.map((r) => 'concept' in r && <ReviewRow key={`v-${r.concept}`} concept={r.concept} title={r.title} why={r.why} onDone={() => void load()} />)}
-              {!ov.due.test && !ov.due.repairs.length && !ov.due.reviews.length && <p className="muted" style={{ margin: 0 }}>Nothing due — go straight to the next video.</p>}
+          {!ov.setup.assessment && (
+            <div className="empty">
+              <strong>Add your exam dates first</strong>Fill semesters/s1/assessment.yaml in the vault (Study setup below). Exam dates, subjects and weights decide the pace and the ready date.
             </div>
-          </section>
+          )}
 
-          <section className="card">
-            <h2 className="card-title">Subjects</h2>
-            <div className="stack">
-              {ov.subjects.map((s) => (
-                <div key={s.subject}>
-                  <div className="row between" style={{ fontSize: 14 }}>
-                    <span>{s.title}</span>
-                    <span className="faint">
-                      {s.applied}/{s.concepts} · coverage {pct(s.coverage)} · readiness {pct(s.readiness)}
-                    </span>
-                  </div>
-                  <div className="study-bar">
-                    <Bar value={s.coverage} color="var(--accent)" />
-                  </div>
-                  <div className="study-bar">
-                    <Bar value={s.readiness} color="var(--ok)" />
-                  </div>
-                </div>
-              ))}
-              {!ov.subjects.length && <p className="muted">No subjects yet.</p>}
-            </div>
-          </section>
-
+          <NextUp item={next} subjects={ov.subjects} live={live} onStart={(c, r) => void startLesson(c, r)} onPreview={(c, r) => setOpen({ concept: c, repair: r })} onTest={setTest} />
+          <DueFirst due={ov.due} onTest={setTest} onFix={(c, r) => void startLesson(c, r)} onReload={() => void load()} />
+          <Progress subjects={ov.subjects} header={ov.header} minutesToday={ov.studyMinutesToday} />
           {ov.iitj && <IitjTrack iitj={ov.iitj} onDone={() => void load()} />}
           <Extras lastTest={ov.lastTest} subjects={ov.subjects} onReport={(id) => setSession(`test:${id}`)} onReload={() => void load()} onOpen={(c) => setOpen({ concept: c })} />
           <StudySetup subjects={ov.subjects} onChanged={() => void load()} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** The running session, always visible: what is being timed, for how long, and how to finish it. */
+function LiveBar({ live, title, onStop, onOpen }: { live: NonNullable<Overview['live']>; title?: string; onStop: () => void; onOpen?: () => void }) {
+  const now = useNow();
+  const min = Math.max(0, Math.floor((now - live.since) / 60_000));
+  return (
+    <div className="live-bar" role="status">
+      <span className="dot" aria-hidden="true" />
+      <span className="grow">
+        Timer running{title ? <> · <strong>{title}</strong></> : ''} · {min} min
+      </span>
+      {onOpen && (
+        <button className="btn sm ghost" onClick={onOpen}>
+          Open lesson
+        </button>
+      )}
+      <button className="btn sm" onClick={onStop}>
+        <Square size={13} /> Finish
+      </button>
     </div>
   );
 }
@@ -246,7 +263,7 @@ function SummaryOnly({ summary }: { summary: NonNullable<ReturnType<typeof useSt
       <dl className="kv">
         <dt>Next</dt>
         <dd>{summary.next ? `${summary.next.concept} · ${summary.next.subject} · ${summary.next.minutes} min` : '—'}</dd>
-        <dt>Coverage</dt>
+        <dt>Covered</dt>
         <dd>{pct(summary.coverage)}</dd>
         <dt>Pace</dt>
         <dd>{PACE[summary.pace] ?? summary.pace}</dd>
@@ -259,29 +276,75 @@ function SummaryOnly({ summary }: { summary: NonNullable<ReturnType<typeof useSt
   );
 }
 
-function NextUp({ item, subjects, live, onOpen, onStart }: { item: QueueItem | null; subjects: SubjectProgress[]; live: boolean; onOpen: (concept: string, repair?: string) => void; onStart: (concept: string) => void }) {
-  if (!item || !('concept' in item)) return <div className="empty">Nothing queued yet. Ingest the assets on the PC (study ingest) and let /ingest run.</div>;
+/** Today's lesson: one primary action. */
+function NextUp({
+  item,
+  subjects,
+  live,
+  onStart,
+  onPreview,
+  onTest,
+}: {
+  item: QueueItem | null;
+  subjects: SubjectProgress[];
+  live: Overview['live'];
+  onStart: (concept: string, repair?: string) => void;
+  onPreview: (concept: string, repair?: string) => void;
+  onTest: (testId: string) => void;
+}) {
+  if (!item)
+    return (
+      <div className="empty">
+        <strong>Nothing queued yet</strong>
+        <span>Add your course material on the PC (Study setup → assets, then let the nightly ingest run) and your next lesson appears here.</span>
+      </div>
+    );
+  if (item.kind === 'test')
+    return (
+      <section className="card study-hero">
+        <h2 className="card-title">
+          Today <span className="pill" data-tone="warn">{KIND_LABEL.test}</span>
+        </h2>
+        <h3>{item.title}</h3>
+        <p className="muted" style={{ margin: '0 0 14px' }}>
+          {item.minutes} min · written + programming · the clock cannot be paused
+        </p>
+        <button className="btn primary lg" onClick={() => onTest(item.testId)}>
+          <Play size={16} /> Take the test
+        </button>
+      </section>
+    );
   const seg = item.kind === 'learn' ? item.segment : undefined;
+  const repair = item.kind === 'repair' ? item.repair.key : undefined;
+  const running = live?.concept === item.concept;
   return (
-    <section className="card">
+    <section className="card study-hero">
       <h2 className="card-title">
-        Next up <span className="chip">{item.kind === 'repair' ? 'repair' : item.kind === 'learn' ? item.step : item.kind}</span>
+        Today's lesson <span className="pill" data-tone={item.kind === 'repair' ? 'warn' : undefined}>{KIND_LABEL[item.kind]}</span>
       </h2>
-      <h3 style={{ margin: '0 0 4px', fontSize: 20 }}>{item.title}</h3>
-      <p className="muted" style={{ marginTop: 0 }}>
-        {subjects.find((s) => s.subject === item.subject)?.title ?? item.subject} · {item.minutes} min · {item.why}
+      <h3>{item.title}</h3>
+      <p className="muted" style={{ margin: '0 0 10px' }}>
+        {subjects.find((s) => s.subject === item.subject)?.title ?? item.subject} · about {item.minutes} min
       </p>
       {seg && <SegmentLine seg={seg} />}
-      <div className="btn-row" style={{ marginTop: 12 }}>
-        <button className="btn primary" onClick={() => onOpen(item.concept, item.kind === 'repair' ? item.repair.key : undefined)}>
-          <BookOpen size={15} /> Open
+      <p className="faint" style={{ margin: '8px 0 0', fontSize: 13 }}>
+        Why now: {item.why}
+      </p>
+      <div className="btn-row" style={{ marginTop: 16 }}>
+        <button className="btn primary lg" onClick={() => onStart(item.concept, repair)}>
+          <Play size={16} /> {running ? 'Continue lesson' : 'Start lesson'}
         </button>
-        {!live && (
-          <button className="btn" onClick={() => onStart(item.concept)}>
-            <Play size={15} /> Start session
+        {!running && (
+          <button className="btn ghost" onClick={() => onPreview(item.concept, repair)}>
+            <BookOpen size={15} /> Preview without the timer
           </button>
         )}
       </div>
+      {!running && (
+        <p className="faint" style={{ margin: '8px 0 0', fontSize: 12 }}>
+          Start lesson turns the study timer and Focus Guard on, then walks you through watch → explain → check.
+        </p>
+      )}
     </section>
   );
 }
@@ -301,6 +364,90 @@ function SegmentLine({ seg }: { seg: Segment }) {
       <br />
       <span className="faint">{seg.why}</span>
     </p>
+  );
+}
+
+/** Reviews, weak spots and a due test — shown only when something is actually due. */
+function DueFirst({ due, onTest, onFix, onReload }: { due: Overview['due']; onTest: (testId: string) => void; onFix: (concept: string, repair?: string) => void; onReload: () => void }) {
+  const repairs = due.repairs.filter((r) => 'concept' in r);
+  const reviews = due.reviews.filter((r) => 'concept' in r);
+  const test = due.test && 'testId' in due.test ? due.test : null;
+  const n = (test ? 1 : 0) + repairs.length + reviews.length;
+  if (!n) return null;
+  return (
+    <section className="card">
+      <h2 className="card-title">
+        Do these first <span className="pill" data-tone="warn">{n} due</span>
+      </h2>
+      <div>
+        {test && (
+          <div className="list-row">
+            <div className="grow">
+              <strong style={{ fontWeight: 500 }}>{test.title}</strong>
+              <div className="faint" style={{ fontSize: 13 }}>
+                {test.minutes} min, written + programming
+              </div>
+            </div>
+            <button className="btn primary sm" onClick={() => onTest(test.testId)}>
+              Take the test
+            </button>
+          </div>
+        )}
+        {repairs.map(
+          (r) =>
+            'concept' in r && (
+              <div key={`r-${r.concept}`} className="list-row">
+                <div className="grow">
+                  <strong style={{ fontWeight: 500 }}>Fix a weak spot · {r.title}</strong>
+                  <div className="faint" style={{ fontSize: 13 }}>
+                    {r.why}
+                  </div>
+                </div>
+                <button className="btn sm" onClick={() => onFix(r.concept, r.kind === 'repair' ? r.repair.key : undefined)}>
+                  Fix it
+                </button>
+              </div>
+            ),
+        )}
+        {reviews.map((r) => 'concept' in r && <ReviewRow key={`v-${r.concept}`} concept={r.concept} title={r.title} why={r.why} onDone={onReload} />)}
+      </div>
+    </section>
+  );
+}
+
+function Progress({ subjects, header, minutesToday }: { subjects: SubjectProgress[]; header: Overview['header']; minutesToday: number }) {
+  return (
+    <section className="card">
+      <h2 className="card-title">
+        Progress <span>{minutesToday} min studied today</span>
+      </h2>
+      <div className="stack">
+        {subjects.map((s) => (
+          <div key={s.subject}>
+            <div className="row between wrap" style={{ fontSize: 14 }}>
+              <span style={{ fontWeight: 500 }}>{s.title}</span>
+              <span className="faint">
+                {s.applied} of {s.concepts} topics learned
+              </span>
+            </div>
+            <div className="study-bar">
+              <Bar value={s.coverage} color="var(--accent)" />
+            </div>
+            <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>
+              {pct(s.coverage)} covered · {pct(s.readiness)} exam-ready
+            </div>
+          </div>
+        ))}
+        {!subjects.length && <p className="muted">No subjects yet — add a syllabus in Study setup.</p>}
+        {header && (
+          <p className="faint" style={{ margin: 0, fontSize: 13 }}>
+            Aim: everything learned by {header.readyBy}
+            {header.projectedReady ? ` · at today's pace you finish ${header.projectedReady}` : ''}
+            {header.pace.neededPerDay ? ` · about ${Math.ceil(header.pace.neededPerDay)} topic${Math.ceil(header.pace.neededPerDay) === 1 ? '' : 's'} a day needed` : ''}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -381,104 +528,211 @@ function Reader({ seg }: { seg: Segment }) {
   );
 }
 
-function ConceptWork({ concept, repair, live, onStart, onClose }: { concept: string; repair?: string; review?: boolean; live: boolean; onStart: () => void; onClose: () => void }) {
+type StepId = 'watch' | 'explain' | 'check' | 'lab' | 'done';
+const STEP_LABEL: Record<StepId, string> = { watch: 'Watch', explain: 'Explain', check: 'Check', lab: 'Lab', done: 'Done' };
+const MASTERY_LABEL: Record<string, string> = {
+  exposure: 'Watched',
+  understanding: 'Explained',
+  recall: 'Recall',
+  application: 'Problems',
+  implementation: 'Code',
+  retention: 'Memory',
+  transfer: 'New situations',
+  speed: 'Speed',
+};
+
+/**
+ * A guided lesson: watch → explain → check → (lab) → done, one step on screen at a time. Every step stays
+ * reachable from the step bar; "Next" never blocks, it only suggests the order that makes the learning stick.
+ */
+function ConceptWork({ concept, repair, live, onStart, onStop, onClose }: { concept: string; repair?: string; live: Overview['live']; onStart: () => void; onStop: () => void; onClose: () => void }) {
   const toast = useStore((s) => s.toast);
   const [v, setV] = useState<ConceptView | null>(() => (cacheGet<{ items: { view: ConceptView }[] }>('pack')?.items.find((i) => i.view.concept.id === concept)?.view ?? null));
   const [segIndex, setSegIndex] = useState(0);
+  const [step, setStep] = useState<StepId | null>(null);
+  const [finished, setFinished] = useState<StepId[]>([]);
   const load = useCallback(() => studyCall<ConceptView>('concept', { id: concept }).then(setV).catch((e: Error) => toast(e.message, 'warn')), [concept, toast]);
   useEffect(() => void load(), [load]);
-  if (!v) return <div className="empty">Loading…</div>;
+  if (!v) return <div className="empty">Loading the lesson…</div>;
   const alt = v.state.missedChecks > 0 && v.path?.alternates.length ? v.path.alternates : null;
   const segs = repair && v.visual ? [v.visual] : (alt ?? v.path?.segments ?? []);
   const seg = segs[Math.min(segIndex, segs.length - 1)];
-  const done = async (s: Segment) => {
+  const steps: StepId[] = [...(seg ? (['watch'] as const) : []), ...(v.pack && !repair ? (['explain'] as const) : []), ...(v.pack ? (['check'] as const) : []), ...(v.lab && !repair ? (['lab'] as const) : []), 'done'];
+  const m = v.state.mastery;
+  const isDone = (s: StepId) =>
+    finished.includes(s) ||
+    (!repair && s === 'watch' && (m.exposure ?? 0) >= 0.99) ||
+    (s === 'explain' && (m.understanding ?? 0) > 0) ||
+    (!repair && s === 'check' && m.recall !== null && m.recall !== undefined) ||
+    (s === 'lab' && (m.implementation ?? 0) > 0);
+  const first = repair ? steps[0] : (steps.find((s) => s !== 'done' && !isDone(s)) ?? steps[0]);
+  const current = step && steps.includes(step) ? step : first;
+  const idx = steps.indexOf(current);
+  const go = (i: number) => {
+    setStep(steps[Math.max(0, Math.min(steps.length - 1, i))]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const complete = (s: StepId) => setFinished((x) => (x.includes(s) ? x : [...x, s]));
+  const stepLabel = (s: StepId) => (s === 'check' && repair ? 'Retest' : STEP_LABEL[s]);
+  const running = live?.concept === concept;
+
+  const watched = async (s: Segment) => {
     const params = { concept, url: s.url, alternate: !!alt, index: segIndex };
     try {
       await studyCall('segment', params);
       toast('Marked as watched', 'success');
-      if (segIndex < segs.length - 1) setSegIndex(segIndex + 1);
       void load();
     } catch (e) {
       if (e instanceof StudyApiError && e.status === 0) {
         enqueue('segment', params);
         toast('Saved — it is sent when the PC is reachable', 'info');
-      } else toast((e as Error).message, 'warn');
+      } else return toast((e as Error).message, 'warn');
+    }
+    if (segIndex < segs.length - 1) setSegIndex(segIndex + 1);
+    else {
+      complete('watch');
+      go(idx + 1);
     }
   };
+
   return (
     <div>
       <header className="page-head">
         <div>
+          <button className="btn ghost sm" onClick={onClose} style={{ marginLeft: -10, marginBottom: 6 }}>
+            <ChevronLeft size={15} /> All study
+          </button>
           <h1>{v.concept.title}</h1>
           <p>
-            {v.concept.subject} · {RUNG_LABEL[v.state.rung]} · next: {v.state.nextStep}
-            {v.hintsOnly ? ' · live graded assignment: hints only' : ''}
+            {v.concept.subject} · stage: {RUNG_LABEL[v.state.rung]}
+            {v.hintsOnly ? ' · a graded assignment is live: hints only' : ''}
           </p>
         </div>
-        <div className="row wrap">
-          {!live && (
-            <button className="btn sm" onClick={onStart}>
-              <Play size={14} /> Start session
-            </button>
-          )}
-          <button className="btn ghost sm" onClick={onClose}>
-            Back
+      </header>
+
+      {running && live ? (
+        <LiveBar live={live} title={v.concept.title} onStop={onStop} />
+      ) : (
+        <div className="live-bar" style={{ background: 'var(--surface-2)' }}>
+          <span className="grow">{live ? 'The timer is running for another lesson.' : 'The timer is off — this lesson does not count as study time.'}</span>
+          <button className="btn sm primary" onClick={onStart}>
+            <Play size={13} /> {live ? 'Time this lesson instead' : 'Start the timer'}
           </button>
         </div>
-      </header>
-      <div className="stack lg">
-        {repair && <div className="banner" data-tone="drifting"><CircleAlert size={18} /><div className="grow"><h3>Repair</h3><p>Watch the most visual explanation, then answer the retest. It closes when you get it right.</p></div></div>}
-        {seg ? (
-          <section className="card">
-            <h2 className="card-title">
-              Watch {segs.length > 1 ? `· ${segIndex + 1} of ${segs.length}` : ''} {alt ? <span className="chip">alternate explanation</span> : null}
-            </h2>
-            <Player seg={seg} onEnded={() => void done(seg)} />
-            <div style={{ marginTop: 10 }}>
-              <SegmentLine seg={seg} />
-            </div>
-            <div className="btn-row" style={{ marginTop: 10 }}>
-              <button className="btn sm" onClick={() => void done(seg)}>
-                <CheckIcon size={14} /> {youtubeId(seg.url) ? 'I watched it' : 'Done — I studied it'}
+      )}
+
+      {repair && (
+        <div className="banner" data-tone="drifting" style={{ marginBottom: 16 }}>
+          <CircleAlert size={18} />
+          <div className="grow">
+            <h3>Fixing a weak spot</h3>
+            <p>Watch the clearest explanation, then answer the retest. It closes when you get it right.</p>
+          </div>
+        </div>
+      )}
+
+      {steps.length === 1 ? (
+        <div className="empty">
+          <strong>Nothing to study here yet</strong>
+          <span>Tonight's curation adds a video or reading for this topic.</span>
+        </div>
+      ) : (
+        <>
+          <Steps steps={steps.map(stepLabel)} current={idx} done={(i) => isDone(steps[i])} onPick={go} />
+
+          {current === 'watch' && seg && (
+            <section className="card">
+              <h2 className="card-title">
+                {segs.length > 1 ? `Watch · part ${segIndex + 1} of ${segs.length}` : 'Watch'} {alt ? <span className="pill">another explanation</span> : null}
+              </h2>
+              <Player seg={seg} onEnded={() => void watched(seg)} />
+              <div style={{ marginTop: 10 }}>
+                <SegmentLine seg={seg} />
+              </div>
+              {(v.concept.definition || v.concept.formulas.length > 0 || v.concept.notation.length > 0) && (
+                <div className="key-idea">
+                  <strong>Key idea</strong>
+                  {v.concept.definition && <p style={{ margin: '4px 0 0' }}>{v.concept.definition}</p>}
+                  {v.concept.formulas.map((f) => (
+                    <p key={f.id} className="mono" style={{ margin: '4px 0' }}>
+                      {f.name ? `${f.name}: ` : ''}
+                      {f.latex}
+                    </p>
+                  ))}
+                  {v.concept.notation.length > 0 && <p className="faint" style={{ margin: '4px 0 0' }}>Notation: {v.concept.notation.map((n) => `IITJ ${n.iitj} = ${n.resource}${n.meaning ? ` (${n.meaning})` : ''}`).join(' · ')}</p>}
+                </div>
+              )}
+              <div className="btn-row" style={{ marginTop: 14 }}>
+                <button className="btn primary" onClick={() => void watched(seg)}>
+                  <CheckIcon size={15} /> {youtubeId(seg.url) ? 'I watched it' : 'I studied it'} — next
+                </button>
+              </div>
+            </section>
+          )}
+          {current === 'explain' && v.pack && <Explain concept={concept} keyPoints={v.pack.keyPoints} onDone={(pass) => (void load(), pass && complete('explain'))} />}
+          {current === 'check' && v.pack && <QuickCheck concept={concept} pack={v.pack} repair={repair} onAnswered={() => void load()} onComplete={() => complete('check')} />}
+          {current === 'lab' && v.lab && <LabBox concept={concept} lab={v.lab} onDone={(ok) => (void load(), ok && complete('lab'))} />}
+          {current === 'done' && (
+            <section className="card">
+              <h2 className="card-title">Lesson summary</h2>
+              <div>
+                {steps
+                  .filter((s) => s !== 'done')
+                  .map((s) => (
+                    <div key={s} className="list-row">
+                      <span>{stepLabel(s)}</span>
+                      {isDone(s) ? (
+                        <span className="pill" data-tone="ok">
+                          done
+                        </span>
+                      ) : (
+                        <button className="btn ghost sm" onClick={() => go(steps.indexOf(s))}>
+                          Do it now
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+              <h2 className="card-title" style={{ marginTop: 20 }}>
+                How well you know it <span>from your answers</span>
+              </h2>
+              <div className="stack">
+                {Object.entries(m).map(([k, val]) => (
+                  <div key={k} className="row mastery-row" style={{ fontSize: 13 }}>
+                    <span style={{ width: 120 }}>{MASTERY_LABEL[k] ?? k}</span>
+                    <span className="grow">{val === null ? <span className="faint">no evidence yet</span> : <Bar value={val} color="var(--accent)" />}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="btn-row" style={{ marginTop: 18 }}>
+                {running && (
+                  <button className="btn primary" onClick={() => (onStop(), onClose())}>
+                    <Square size={14} /> Finish the session
+                  </button>
+                )}
+                <button className={`btn${running ? '' : ' primary'}`} onClick={onClose}>
+                  Back to Study
+                </button>
+              </div>
+            </section>
+          )}
+          {current !== 'done' && (
+            <div className="lesson-nav">
+              <button className="btn ghost" disabled={idx === 0} onClick={() => go(idx - 1)}>
+                <ChevronLeft size={15} /> Back
+              </button>
+              <button className="btn" onClick={() => go(idx + 1)}>
+                {isDone(current) ? 'Next' : 'Skip for now'} <ChevronRight size={15} />
               </button>
             </div>
-          </section>
-        ) : (
-          <div className="empty">No resource yet — tonight's curation adds one.</div>
-        )}
-        {(v.concept.definition || v.concept.formulas.length > 0 || v.concept.notation.length > 0) && (
-          <section className="card">
-            <h2 className="card-title">Card</h2>
-            {v.concept.definition && <p style={{ marginTop: 0 }}>{v.concept.definition}</p>}
-            {v.concept.formulas.map((f) => (
-              <p key={f.id} className="mono" style={{ margin: '4px 0' }}>
-                {f.name ? `${f.name}: ` : ''}
-                {f.latex}
-              </p>
-            ))}
-            {v.concept.notation.length > 0 && <p className="faint">Notation: {v.concept.notation.map((n) => `IITJ ${n.iitj} = ${n.resource}${n.meaning ? ` (${n.meaning})` : ''}`).join(' · ')}</p>}
-          </section>
-        )}
-        {v.pack && !repair && <Explain concept={concept} keyPoints={v.pack.keyPoints} onDone={() => void load()} />}
-        {v.pack && <QuickCheck concept={concept} pack={v.pack} repair={repair} onDone={() => void load()} />}
-        {v.lab && !repair && <LabBox concept={concept} lab={v.lab} onDone={() => void load()} />}
-        <section className="card">
-          <h2 className="card-title">Mastery (from evidence)</h2>
-          <div className="stack">
-            {Object.entries(v.state.mastery).map(([k, val]) => (
-              <div key={k} className="row mastery-row" style={{ fontSize: 13 }}>
-                <span style={{ width: 110 }}>{k}</span>
-                <span className="grow">{val === null ? <span className="faint">no evidence yet</span> : <Bar value={val} color="var(--accent)" />}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: number; onDone: () => void }) {
+function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: number; onDone: (pass: boolean) => void }) {
   const toast = useStore((s) => s.toast);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -504,8 +758,9 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
   const check = async () => {
     setBusy(true);
     try {
-      setRes(await studyCall('tutorExplain', { concept, text }));
-      onDone();
+      const r = await studyCall<NonNullable<typeof res>>('tutorExplain', { concept, text });
+      setRes(r);
+      onDone(r.pass);
     } catch (e) {
       if (e instanceof StudyApiError && e.status === 0) {
         enqueue('tutorExplain', { concept, text });
@@ -515,38 +770,44 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
       setBusy(false);
     }
   };
+  const short = 20 - text.trim().length;
   return (
     <section className="card">
       <h2 className="card-title">Explain it in your own words</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        The Quick Tutor checks your explanation against {keyPoints} key points Claude wrote in advance.
+        Teach it back as if to a friend{mode !== 'none' ? ' — type it or press Speak' : ''}. The tutor checks it against {keyPoints} key points.
       </p>
       <textarea className="textarea" rows={5} value={session ? appendSpoken(text, heard) : text} readOnly={!!session} onChange={(e) => setText(e.target.value)} placeholder={mode === 'none' ? 'Type your explanation…' : 'Type or speak your explanation…'} />
+      {short > 0 && !session && (
+        <small className="faint" style={{ display: 'block', marginTop: 4 }}>
+          Write at least {short} more character{short === 1 ? '' : 's'} to check it.
+        </small>
+      )}
       <div className="btn-row" style={{ marginTop: 8 }}>
-        <button className="btn primary sm" disabled={busy || !!session || text.trim().length < 20} onClick={() => void check()}>
-          Check my explanation
+        <button className="btn primary" disabled={busy || !!session || short > 0} onClick={() => void check()}>
+          {busy ? 'Checking…' : 'Check my explanation'}
         </button>
         {mode !== 'none' &&
           (session ? (
-            <button className="btn sm primary" onClick={() => session.stop()}>
-              <Mic size={14} /> Listening… tap to stop
+            <button className="btn primary" onClick={() => session.stop()}>
+              <Mic size={15} /> Listening… tap to stop
             </button>
           ) : (
-            <button className="btn sm" onClick={speak}>
-              <Mic size={14} /> Speak
+            <button className="btn" onClick={speak}>
+              <Mic size={15} /> Speak
             </button>
           ))}
       </div>
       {res && (
-        <div className="banner" data-tone={res.pass ? 'info' : 'drifting'} style={{ marginTop: 12 }}>
+        <div className="banner" data-tone={res.pass ? 'info' : 'drifting'} style={{ marginTop: 12 }} role="status">
           {res.pass ? <CheckIcon size={18} /> : <CircleAlert size={18} />}
           <div className="grow">
             <h3>
               {res.pass ? 'Understood' : 'Not yet'} · {pct(res.coverage)} of the key points{res.confidence === 'low' ? ' (Claude re-checks tonight)' : ''}
             </h3>
             <p>{res.feedback}</p>
-            {res.missed.length > 0 && <p>Missing: {res.missed.map((m) => m.text).join('; ')}</p>}
-            {res.hint && <p>Hint: {res.hint} — try the alternate explanation above.</p>}
+            {res.missed.length > 0 && <p>Missing: {res.missed.map((x) => x.text).join('; ')}</p>}
+            {res.hint && <p>Hint: {res.hint} — the Watch step has another explanation.</p>}
           </div>
         </div>
       )}
@@ -554,16 +815,22 @@ function Explain({ concept, keyPoints, onDone }: { concept: string; keyPoints: n
   );
 }
 
-function QuickCheck({ concept, pack, repair, onDone }: { concept: string; pack: NonNullable<ConceptView['pack']>; repair?: string; onDone: () => void }) {
+function QuickCheck({ concept, pack, repair, onAnswered, onComplete }: { concept: string; pack: NonNullable<ConceptView['pack']>; repair?: string; onAnswered: () => void; onComplete: () => void }) {
   const toast = useStore((s) => s.toast);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [results, setResults] = useState<Record<string, { correct: boolean; feedback: string }>>({});
+  const total = pack.questions.length;
+  const answered = pack.questions.filter((q) => results[q.id]).length;
+  useEffect(() => {
+    if (total && answered === total) onComplete();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered, total]);
   const send = async (qid: string) => {
     const params = { concept, question: qid, answer: answers[qid] ?? '', ...(repair ? { repair } : {}) };
     try {
       const r = await studyCall<{ correct: boolean; feedback: string }>('tutorAnswer', params);
       setResults((x) => ({ ...x, [qid]: r }));
-      onDone();
+      onAnswered();
     } catch (e) {
       if (e instanceof StudyApiError && e.status === 0) {
         enqueue('tutorAnswer', params);
@@ -573,40 +840,48 @@ function QuickCheck({ concept, pack, repair, onDone }: { concept: string; pack: 
   };
   return (
     <section className="card">
-      <h2 className="card-title">{repair ? 'Retest' : 'Quick check'}</h2>
-      <div className="stack">
-        {pack.questions.map((q) => (
-          <div key={q.id}>
-            <p style={{ margin: '0 0 6px' }}>{q.q}</p>
-            <div className="row">
-              {q.options ? (
-                <select className="select grow" value={answers[q.id] ?? ''} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}>
-                  <option value="">Choose…</option>
-                  {q.options.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
-              ) : (
-                <input className="input grow" value={answers[q.id] ?? ''} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && void send(q.id)} />
+      <h2 className="card-title">
+        {repair ? 'Retest' : 'Quick check'}{' '}
+        <span>
+          {answered} of {total} answered
+        </span>
+      </h2>
+      <div className="stack lg">
+        {pack.questions.map((q, n) => {
+          const r = results[q.id];
+          return (
+            <div key={q.id} className="qa">
+              <div>
+                <p style={{ margin: '0 0 8px' }}>
+                  <span className="faint mono">{n + 1}. </span>
+                  {q.q}
+                </p>
+                {q.options ? (
+                  <Choice name={`q-${q.id}`} value={answers[q.id] ?? ''} options={q.options} onChange={(o) => setAnswers((a) => ({ ...a, [q.id]: o }))} />
+                ) : (
+                  <input className="input" style={{ width: '100%' }} aria-label={`Answer to question ${n + 1}`} value={answers[q.id] ?? ''} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && answers[q.id]?.trim() && void send(q.id)} />
+                )}
+                <div className="btn-row" style={{ marginTop: 8 }}>
+                  <button className="btn sm" disabled={!answers[q.id]?.trim()} onClick={() => void send(q.id)}>
+                    {r ? 'Check again' : 'Check'}
+                  </button>
+                </div>
+              </div>
+              {r && (
+                <div className="feedback" data-ok={String(r.correct)} role="status">
+                  {r.correct ? <CheckIcon size={16} /> : <CircleAlert size={16} />}
+                  <span>{r.feedback}</span>
+                </div>
               )}
-              <button className="btn sm" disabled={!answers[q.id]?.trim()} onClick={() => void send(q.id)}>
-                Check
-              </button>
             </div>
-            {results[q.id] && (
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: results[q.id].correct ? 'var(--ok)' : 'var(--warn)' }}>
-                {results[q.id].correct ? '✓ ' : ''}
-                {results[q.id].feedback}
-              </p>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function LabBox({ concept, lab, onDone }: { concept: string; lab: NonNullable<ConceptView['lab']>; onDone: () => void }) {
+function LabBox({ concept, lab, onDone }: { concept: string; lab: NonNullable<ConceptView['lab']>; onDone: (ok: boolean) => void }) {
   const toast = useStore((s) => s.toast);
   const [code, setCode] = useState(lab.starter);
   const [busy, setBusy] = useState(false);
@@ -614,8 +889,9 @@ function LabBox({ concept, lab, onDone }: { concept: string; lab: NonNullable<Co
   const run = async () => {
     setBusy(true);
     try {
-      setRes(await studyCall('labRun', { lab: lab.id, code }));
-      onDone();
+      const r = await studyCall<NonNullable<typeof res>>('labRun', { lab: lab.id, code });
+      setRes(r);
+      onDone(r.ok);
     } catch (e) {
       toast((e as Error).message, 'warn');
     } finally {
@@ -669,13 +945,16 @@ function ReviewRow({ concept, title, why, onDone }: { concept: string; title: st
     onDone();
   };
   return (
-    <div className="row between wrap">
-      <span>
-        <strong>Review · {title}</strong> <span className="faint">{why}</span>
-      </span>
+    <div className="list-row">
+      <div className="grow">
+        <strong style={{ fontWeight: 500 }}>Quick recall · {title}</strong>
+        <div className="faint" style={{ fontSize: 13 }}>
+          {shown ? 'How well did you remember it?' : `Say the idea to yourself from memory first. ${why}`}
+        </div>
+      </div>
       {!shown ? (
         <button className="btn sm" onClick={() => setShown(true)}>
-          Recall it, then grade
+          I've recalled it
         </button>
       ) : (
         <span className="btn-row">
@@ -690,27 +969,60 @@ function ReviewRow({ concept, title, why, onDone }: { concept: string; title: st
   );
 }
 
+/** Days from today to a YYYY-MM-DD date, in words, with a tone for the pill. */
+function dueIn(due: string): { text: string; tone?: 'warn' | 'bad' } {
+  const [y, mo, d] = due.split('-').map(Number);
+  const t = new Date();
+  const days = Math.round((new Date(y, mo - 1, d).getTime() - new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()) / 86_400_000);
+  if (days < 0) return { text: `${-days} day${days === -1 ? '' : 's'} late`, tone: 'bad' };
+  if (days === 0) return { text: 'due today', tone: 'bad' };
+  if (days === 1) return { text: 'due tomorrow', tone: 'warn' };
+  return { text: `due in ${days} days`, tone: days <= 3 ? 'warn' : undefined };
+}
+
 function IitjTrack({ iitj, onDone }: { iitj: NonNullable<Overview['iitj']>; onDone: () => void }) {
   const toast = useStore((s) => s.toast);
+  const [busy, setBusy] = useState<string | null>(null);
+  const submit = (id: string, title: string) => {
+    setBusy(id);
+    void studyCall('deadlineSubmit', { id })
+      .then(
+        () => (toast(`${title} marked as submitted`, 'success'), onDone()),
+        (e: Error) => toast(e.message, 'warn'),
+      )
+      .finally(() => setBusy(null));
+  };
   return (
     <section className="card">
       <h2 className="card-title">
-        IITJ track <span>{pct(iitj.track)}</span>
+        IITJ deadlines{' '}
+        <span>
+          {iitj.lecturesWatched}/{iitj.lectures} lectures · {iitj.assignmentsSubmitted}/{iitj.assignments} submitted
+        </span>
       </h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Lectures {iitj.lecturesWatched}/{iitj.lectures} · assignments {iitj.assignmentsSubmitted}/{iitj.assignments}
-      </p>
-      <div className="stack">
-        {iitj.deadlines.map((d) => (
-          <div key={d.id} className="row between">
-            <span>
-              {d.due} · {d.title} <span className="faint">({d.subject}{d.graded ? ', graded — hints only' : ''})</span>
-            </span>
-            <button className="btn ghost sm" onClick={() => void studyCall('deadlineSubmit', { id: d.id }).then(onDone, (e: Error) => toast(e.message, 'warn'))}>
-              Submitted
-            </button>
-          </div>
-        ))}
+      <div>
+        {!iitj.deadlines.length && <p className="muted" style={{ margin: 0 }}>No open deadlines.</p>}
+        {iitj.deadlines.map((d) => {
+          const due = dueIn(d.due);
+          return (
+            <div key={d.id} className="list-row">
+              <div className="grow">
+                <div>
+                  <span style={{ fontWeight: 500 }}>{d.title}</span> <span className="faint">· {d.subject}</span>
+                </div>
+                <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
+                  <span className="pill" data-tone={due.tone} title={d.due}>
+                    {due.text}
+                  </span>
+                  {d.graded && <span className="pill">graded — the tutor gives hints only</span>}
+                </div>
+              </div>
+              <button className="btn sm" disabled={busy === d.id} onClick={() => submit(d.id, d.title)}>
+                <CheckIcon size={14} /> Mark as submitted
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -905,7 +1217,7 @@ function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: 
     <>
       {props.length > 0 && (
         <section className="card">
-          <h2 className="card-title">Proposed changes</h2>
+          <h2 className="card-title">Suggested changes — your decision</h2>
           <div className="stack">
             {props.map((p) => (
               <div key={p.id} className="row between wrap">
@@ -925,8 +1237,7 @@ function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: 
           </div>
         </section>
       )}
-      <section className="card">
-        <h2 className="card-title">More</h2>
+      <Disclosure title="Tools" summary="Save a doubt · concept map · test reports · AI change history">
         <div className="stack">
           {lastTest && (
             <div className="row between">
@@ -940,7 +1251,7 @@ function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: 
               )}
             </div>
           )}
-          <Field label="Capture to the study inbox" hint="A question, a doubt or a link — the next ingest files it.">
+          <Field label="Save a doubt for later" hint="A question, a doubt or a link — the next ingest files it in the right subject.">
             <div className="row">
               <input className="input grow" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Why is det(A − λI) = 0?" />
               <button className="btn sm" disabled={!note.trim()} onClick={() => (act('capture', { text: note }, 'Captured'), setNote(''))}>
@@ -976,7 +1287,7 @@ function Extras({ lastTest, subjects, onReport, onReload, onOpen }: { lastTest: 
             The portfolio is generated weekly in your vault (portfolio/index.html) and stays private until you publish it.
           </p>
         </div>
-      </section>
+      </Disclosure>
     </>
   );
 }

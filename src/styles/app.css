@@ -2543,3 +2543,25 @@ html[data-motion='reduced'] {
     flex-wrap: wrap;
   }
 }
+.key-idea {
+  margin-top: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.qa {
+  display: grid;
+  gap: var(--s2);
+}
+@media (min-width: 900px) {
+  .qa {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
+    gap: var(--s5);
+    align-items: start;
+  }
+  .qa .feedback {
+    margin-top: 34px;
+  }
+}
