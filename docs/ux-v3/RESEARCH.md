@@ -23,7 +23,7 @@ Research papers (owner's folder "UI UX Rp"):
 | rp12 | Stanford-Makovsky credibility study 2002 | "Arranged in a way that makes sense" and easy navigation are top credibility factors; hard navigation is the surest way to lose trust. |
 | rp13 | Rodden et al., Google, *HEART framework* | Measure UX by goals → signals → metrics (Happiness, Engagement, Adoption, Retention, Task success). |
 
-Ecosystem references (owner's folder "UI-UX of this is purest ecosystem" — admin panel, advisor app, website):
+Design references from the owner's other apps (an admin panel, a field app and a website):
 status always as text in a pill (never colour alone), phones use bottom sheets, toasts sit above the bottom bar,
 empty states point to the next action, submit buttons explain why they are disabled, destructive actions get a
 separate confirmation, one primary action per card.
@@ -32,14 +32,14 @@ separate confirmation, one primary action per card.
 
 | Area | Before | After | Why (source) |
 |---|---|---|---|
-| Study home | Two different "Start" buttons (header "Start studying" and card "Open" + "Start session") — unclear which to press. | One hero card, **Start lesson**: starts the timer + Focus Guard *and* opens the lesson in one tap. "Preview" opens it without the timer. | rp2 fewer steps, rp5 task-based, ecosystem one-primary-action |
+| Study home | Two different "Start" buttons (header "Start studying" and card "Open" + "Start session") — unclear which to press. | One hero card, **Start lesson**: starts the timer + Focus Guard *and* opens the lesson in one tap. "Preview" opens it without the timer. | rp2 fewer steps, rp5 task-based, design refs: one primary action |
 | Study home | Header line packed with numbers ("ready date in 17 days · 0% done · behind by 1"). | One plain sentence: "32 days to the exam · 1 lesson behind the plan". | rp11, rp12 |
 | Study home | Due items, subjects, IITJ track, capture, concept graph, AI changes and setup all open at once. | "Before the new lesson" appears only when something is due; tools (capture, graph, AI changes, test report) sit behind one **Tools** disclosure. | rp4 feature minimisation, rp3 density |
-| Deadlines | A ghost button reading "Submitted" that looks like a status. | Due date in words ("in 4 days"), a **Mark as submitted** button, and a status pill. | rp12, ecosystem status pills |
+| Deadlines | A ghost button reading "Submitted" that looks like a status. | Due date in words ("in 4 days"), a **Mark as submitted** button, and a status pill. | rp12, design refs: status pills |
 | Lesson | One long page: video, card, explain, quick check, lab and mastery stacked. | A guided lesson with steps **Watch → Explain → Check → (Lab) → Done**, one step on screen, step bar on top, Next/Back, live timer bar. | rp3, rp5 wizard, rp6 "what next" |
 | Lesson | Jargon: "rung", "repair", "readiness". | "Stage", "Fix a weak spot", "exam-ready". | rp5 plain labels |
 | Quick check | Answer options in a drop-down. | Options shown as radio buttons, result inline beside the answer with an icon. | rp8, rp9, rp10 |
-| Explain | "Check" button silently disabled under 20 characters. | Hint under the box says how much more to write. | rp10, ecosystem |
+| Explain | "Check" button silently disabled under 20 characters. | Hint under the box says how much more to write. | rp10, design refs |
 | Now | Study summary card above the current block. | The current block comes first; the Study card follows with **Continue lesson** that opens the lesson directly. | rp1, rp6 |
 | Interruptions | A rule could pop Rescue Mode over a lesson, a test or while typing. | During a lesson/test or while typing, it becomes a toast with a "Rebuild" button. | rp3 |
 | Navigation | Seven or eight flat items; shortcut numbers out of order (Study was 8 but second). | Grouped rail (Daily · Look back · System), numbers in visual order. | rp5, rp12 |
@@ -58,7 +58,7 @@ separate confirmation, one primary action per card.
 
 - Git: tag `pre-ux-v3` is the last commit before this work; every phase is tagged `ux-v3-pN-done`.
   `git checkout pre-ux-v3` (or revert the merge) restores the old UI exactly.
-- Windows: the 2.2.0 installer stays on the GitHub release v2.2.0 and in `E:\ExecutionOS-build\release-2.2.0`.
+- Windows: the 2.2.0 installer stays on the GitHub release v2.2.0.
   Installing it over 2.3.0 brings the old UI back; data is untouched (this release changes no data formats).
 - Android: Android refuses to install an older versionCode over a newer one. To go back: let the phone sync
   with the PC first (its data is copied on the PC hub), uninstall 2.3.0, install the 2.2.0 APK from the
